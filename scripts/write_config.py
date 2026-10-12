@@ -14,8 +14,10 @@ import json
 import sys
 import yaml
 
-EXPECT_KEYS = {'min_diagnostics', 'source', 'code', 'severity', 'message'}
-SMOKE_KEYS = {'file', 'server', 'expect', 'startup_timeout', 'diagnostics_timeout'}
+# Take the allowed keys from the schema that editors use, so that the two can't get out of sync.
+SCHEMA = json.loads((Path(__file__).parent.parent / 'smoke.schema.json').read_text(encoding='utf-8'))
+SMOKE_KEYS = set(SCHEMA['properties'])
+EXPECT_KEYS = set(SCHEMA['definitions']['diagnostics']['properties'])
 
 
 def error(message: str) -> NoReturn:

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../smoke.schema.json
 file: src/main.rs
 expect:
   source: rust-analyzer

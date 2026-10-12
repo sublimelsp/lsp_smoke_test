@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/sublimelsp/lsp_smoke_test/v1/smoke.schema.json",
+  "title": "LSP smoke test configuration",
+  "description": "Configuration of the LSP smoke test, read from smoke.yaml in the fixture directory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["file"],
+  "properties": {
+    "file": {
+      "description": "The file to open, relative to the fixture directory.",
+      "type": "string",
+      "minLength": 1
+    },
+    "server": {
+      "description": "Name of the LSP session. Defaults to the package name. Only needed for plugins whose name differs from the package name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "expect": {
+      "description": "What to check. Either `start`, which only checks that the server starts, or a mapping describing the expected diagnostics.",
+      "default": {"min_diagnostics": 1},
+      "oneOf": [
+        {
+          "description": "Only check that the server starts.",
+          "const": "start"
+        },
+        {
+          "$ref": "#/definitions/diagnostics"
+        }
+      ]
+    },
+    "startup_timeout": {
+      "description": "Seconds to wait for the server to start, including downloading or installing it.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 120
+    },
+    "diagnostics_timeout": {
+      "description": "Seconds to wait for the expected diagnostics after the server has started.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 30
+    }
+  },
+  "definitions": {
+    "diagnostics": {
+      "description": "Wait for at least `min_diagnostics` diagnostics matching all of the given keys.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_diagnostics": {
+          "description": "Minimum number of matching diagnostics.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "source": {
+          "description": "The diagnostic's `source`, matched exactly.",
+          "type": "string"
+        },
+        "code": {
+          "description": "The diagnostic's `code`, matched exactly.",
+          "type": ["string", "integer"]
+        },
+        "severity": {
+          "description": "The diagnostic's `severity`: 1 = error, 2 = warning, 3 = information, 4 = hint.",
+          "type": "integer",
+          "enum": [1, 2, 3, 4]
+        },
+        "message": {
+          "description": "A regular expression that the diagnostic's `message` must match.",
+          "type": "string",
+          "format": "regex"
+        }
+      }
+    }
+  }
+}

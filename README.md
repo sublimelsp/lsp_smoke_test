@@ -34,11 +34,16 @@ tests/smoke/
 ```
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/sublimelsp/lsp_smoke_test/v1/smoke.schema.json
 file: sample.py
 expect:
   source: Ruff
   code: F401
 ```
+
+The first line points editors that use [yaml-language-server](https://github.com/redhat-developer/yaml-language-server),
+such as Sublime Text with LSP-yaml or VS Code with the YAML extension, at [smoke.schema.json](smoke.schema.json), which
+gives completion, documentation on hover and validation.
 
 The directory is copied to a temporary location and opened as the only folder of the Sublime Text window, so it acts as
 the workspace root. Put any project files the server needs in it, such as `Cargo.toml` or `package.json`.
@@ -50,7 +55,7 @@ See [examples](examples) for more.
 
 ## smoke.yaml
 
-`smoke.yml` works too. The file is checked before Sublime Text is installed, so a mistake such as an unknown key or a
+`smoke.yml` works too. The file is checked against the schema's keys before Sublime Text is installed, so a mistake such as an unknown key or a
 missing file fails the job right away.
 
 | Key | Default | Description |
