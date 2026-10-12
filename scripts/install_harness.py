@@ -9,24 +9,15 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import os
-import re
 import shutil
-import sys
 
 HARNESS_NAME = 'LSPSmokeTest'
 ACTION_DIR = Path(__file__).parent.parent
 
 
-def packages_path() -> Path:
-    path = os.environ['SUBLIME_TEXT_PACKAGES']
-    # On Windows, UnitTesting sets a Git Bash path like /c/st/Data/Packages/.
-    if sys.platform == 'win32' and (match := re.match(r'^/([a-zA-Z])/(.*)$', path)):
-        path = f'{match.group(1)}:/{match.group(2)}'
-    return Path(path)
-
-
 def main() -> None:
-    packages = packages_path()
+    # On Windows, Git Bash has already converted this from a path like /c/st/Data/Packages/.
+    packages = Path(os.environ['SUBLIME_TEXT_PACKAGES'])
     harness = packages / HARNESS_NAME
     shutil.copytree(ACTION_DIR / 'harness', harness, dirs_exist_ok=True)
     shutil.copyfile(Path(os.environ['RUNNER_TEMP'], 'lsp-smoke-config.json'), harness / 'smoke_config.json')

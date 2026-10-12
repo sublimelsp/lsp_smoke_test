@@ -24,19 +24,18 @@ inputs:
 runs:
   using: composite
   steps:
-    # The logic lives in scripts/, the steps only run it. `shell: python` works on all runners.
+    # The logic lives in scripts/, the steps only run it. Python is started from bash because on Windows, Git Bash
+    # converts SUBLIME_TEXT_PACKAGES, which UnitTesting sets to a path like /c/st/Data/Packages/, to C:/st/...
     - name: Prepare
       id: prepare
-      shell: python
+      shell: bash
       env:
         INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
         INPUT_PACKAGE_PATH: ${{ inputs.package-path }}
         INPUT_FIXTURE_DIR: ${{ inputs.fixture-dir }}
         INPUT_LSP_REF: ${{ inputs.lsp-ref }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: |
-        import os, runpy
-        runpy.run_path(os.path.join(os.environ['GITHUB_ACTION_PATH'], 'scripts', 'prepare.py'), run_name='__main__')
+      run: python "$GITHUB_ACTION_PATH/scripts/prepare.py"
 
     - name: Set up Sublime Text
       uses: SublimeText/UnitTesting/actions/setup@v1
@@ -48,10 +47,8 @@ runs:
           sublimelsp/LSP@${{ steps.prepare.outputs.lsp-ref }}
 
     - name: Install smoke test harness
-      shell: python
-      run: |
-        import os, runpy
-        runpy.run_path(os.path.join(os.environ['GITHUB_ACTION_PATH'], 'scripts', 'install_harness.py'), run_name='__main__')
+      shell: bash
+      run: python "$GITHUB_ACTION_PATH/scripts/install_harness.py"
 
     - name: Run smoke test
       uses: SublimeText/UnitTesting/actions/run-tests@v1
