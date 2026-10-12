@@ -2,20 +2,23 @@
 name = "lsp-smoke-test"
 version = "0"
 description = "Smoke test for LSP packages for Sublime Text"
-requires-python = ">=3.8"
+# Only the development tools run on this version. The harness targets Sublime Text's Python 3.8, see pythonVersion below.
+requires-python = ">=3.10"
 
 [dependency-groups]
 dev = [
     "pyright==1.1.414",
+    "pyyaml==6.0.3",
     "ruff==0.17.0",
     "sublime-text-stubs==1.4200.0b2",
+    "types-pyyaml==6.0.12.20260906",
 ]
 
 [tool.uv]
 package = false
 
 [tool.pyright]
-include = ["harness"]
+include = ["harness", "scripts"]
 # LSP and UnitTesting are not published on PyPI. Clone them into .deps to type-check against them:
 #   git clone --depth 1 https://github.com/sublimelsp/LSP.git .deps/LSP
 #   git clone --depth 1 https://github.com/SublimeText/UnitTesting.git .deps/UnitTesting
@@ -60,6 +63,10 @@ ignore = [
     "bad-quotes-inline-string",
     "pytest-unittest-assertion",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Command line scripts run by the action, not a package.
+"scripts/*" = ["implicit-namespace-package", "print"]
 
 [tool.ruff.lint.isort]
 case-sensitive = false

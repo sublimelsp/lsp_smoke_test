@@ -12,7 +12,7 @@ on:
         type: string
         default: '["ubuntu-latest", "macos-latest"]'
       fixture-dir:
-        description: Directory containing smoke.json, relative to the repository root.
+        description: Directory containing smoke.yaml, relative to the repository root.
         type: string
         default: tests/smoke
       package-name:

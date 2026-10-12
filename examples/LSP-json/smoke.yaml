@@ -1,0 +1,3 @@
+file: invalid.json
+expect:
+  min_diagnostics: 1

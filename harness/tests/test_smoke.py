@@ -1,8 +1,8 @@
 """
 Generic smoke test for LSP packages.
 
-The action writes `smoke_config.json` next to this package, pointing at a copy of the package's fixture directory. That
-directory contains `smoke.json`, which names the file to open and describes what the server is expected to report.
+The action validates the package's `smoke.yaml` and writes it as `smoke_config.json` next to this package, together
+with the path of a copy of the package's fixture directory.
 """
 
 from __future__ import annotations
@@ -32,9 +32,7 @@ STATE_NAMES = {ClientStates.STARTING: 'starting', ClientStates.READY: 'ready', C
 def load_config() -> dict[str, Any]:
     config = json.loads((PACKAGE_DIR / 'smoke_config.json').read_text(encoding='utf-8'))
     fixture_dir = Path(config['fixture_dir'])
-    smoke = json.loads((fixture_dir / 'smoke.json').read_text(encoding='utf-8'))
-    smoke.setdefault('server', config['package'])
-    smoke.setdefault('expect', {'min_diagnostics': 1})
+    smoke = config['smoke']
     smoke['fixture_dir'] = str(fixture_dir)
     smoke['file_path'] = str(fixture_dir / smoke['file'])
     return smoke

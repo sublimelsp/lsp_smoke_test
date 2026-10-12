@@ -24,20 +24,20 @@ jobs:
     uses: sublimelsp/lsp_smoke_test/.github/workflows/smoke-test.yml@v1
 ```
 
-Then add a `tests/smoke/` directory with a `smoke.json` file and the files the server needs:
+Then add a `tests/smoke/` directory with a `smoke.yaml` file and the files the server needs:
 
 ```
 tests/smoke/
-  smoke.json
+  smoke.yaml
   sample.py
   ruff.toml
 ```
 
-```json
-{
-    "file": "sample.py",
-    "expect": {"source": "Ruff", "code": "F401"}
-}
+```yaml
+file: sample.py
+expect:
+  source: Ruff
+  code: F401
 ```
 
 The directory is copied to a temporary location and opened as the only folder of the Sublime Text window, so it acts as
@@ -48,17 +48,20 @@ change when the server's default rules change.
 
 See [examples](examples) for more.
 
-## smoke.json
+## smoke.yaml
+
+`smoke.yml` works too. The file is checked before Sublime Text is installed, so a mistake such as an unknown key or a
+missing file fails the job right away.
 
 | Key | Default | Description |
 |---|---|---|
 | `file` | | The file to open, relative to the fixture directory. |
 | `server` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
-| `expect` | `{"min_diagnostics": 1}` | What to check, see below. |
+| `expect` | `min_diagnostics: 1` | What to check, see below. |
 | `startup_timeout` | `120` | Seconds to wait for the server to start, including downloading or installing it. |
 | `diagnostics_timeout` | `30` | Seconds to wait for the expected diagnostics after the server has started. |
 
-`expect` is either `"start"`, which only checks that the server starts, or an object. With an object, the test waits for
+`expect` is either `start`, which only checks that the server starts, or a mapping. With a mapping, the test waits for
 at least `min_diagnostics` diagnostics (default `1`) matching all of the given keys:
 
 | Key | Matches |
@@ -79,7 +82,7 @@ All inputs are optional.
 |---|---|---|
 | `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. |
 | `os` | `'["ubuntu-latest", "macos-latest"]'` | JSON list of runners. |
-| `fixture-dir` | `tests/smoke` | Directory containing `smoke.json`. |
+| `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`. |
 | `package-name` | Repository name | Name of the package under test. |
 
 ## Servers that need a toolchain

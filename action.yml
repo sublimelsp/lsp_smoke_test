@@ -12,7 +12,7 @@ inputs:
     default: ''
   fixture-dir:
     description: >-
-      Directory containing smoke.json and the files it refers to. Relative to package-path, or an absolute path.
+      Directory containing smoke.yaml and the files it refers to. Relative to package-path, or an absolute path.
     default: tests/smoke
   lsp-ref:
     description: Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
@@ -40,8 +40,15 @@ runs:
           /*) fixture_dir="$INPUT_FIXTURE_DIR" ;;
           *) fixture_dir="$INPUT_PACKAGE_PATH/$INPUT_FIXTURE_DIR" ;;
         esac
-        if [ ! -f "$fixture_dir/smoke.json" ]; then
-          echo "::error::$fixture_dir/smoke.json not found"
+        smoke_file=""
+        for name in smoke.yaml smoke.yml; do
+          if [ -f "$fixture_dir/$name" ]; then
+            smoke_file="$fixture_dir/$name"
+            break
+          fi
+        done
+        if [ -z "$smoke_file" ]; then
+          echo "::error::smoke.yaml not found in $fixture_dir"
           exit 1
         fi
         echo "Testing $package against sublimelsp/LSP@$lsp_ref with fixture $fixture_dir"
@@ -49,7 +56,27 @@ runs:
           echo "package=$package"
           echo "lsp-ref=$lsp_ref"
           echo "fixture-dir=$fixture_dir"
+          echo "smoke-file=$smoke_file"
         } >> "$GITHUB_OUTPUT"
+
+    - name: Validate smoke.yaml
+      shell: bash
+      env:
+        PACKAGE: ${{ steps.resolve.outputs.package }}
+        FIXTURE_SRC: ${{ steps.resolve.outputs.fixture-dir }}
+        SMOKE_FILE: ${{ steps.resolve.outputs.smoke-file }}
+      run: |
+        # Sublime Text's Python can't read YAML, so convert it to JSON here.
+        venv="$RUNNER_TEMP/lsp-smoke-venv"
+        python3 -m venv "$venv"
+        "$venv/bin/pip" install --quiet --disable-pip-version-check pyyaml==6.0.3
+        # Copy the fixture out of the package checkout, so that the server doesn't find the package's own configuration
+        # files (pyproject.toml, .editorconfig, ...) above it.
+        fixture="$RUNNER_TEMP/lsp-smoke-fixture"
+        rm -rf "$fixture"
+        cp -R "$FIXTURE_SRC" "$fixture"
+        "$venv/bin/python" -B "$GITHUB_ACTION_PATH/scripts/write_config.py" \
+          "$PACKAGE" "$SMOKE_FILE" "$fixture" "$RUNNER_TEMP/lsp-smoke-config.json"
 
     - name: Set up Sublime Text
       uses: SublimeText/UnitTesting/actions/setup@v1
@@ -62,20 +89,11 @@ runs:
 
     - name: Install smoke test harness
       shell: bash
-      env:
-        PACKAGE: ${{ steps.resolve.outputs.package }}
-        FIXTURE_SRC: ${{ steps.resolve.outputs.fixture-dir }}
       run: |
         harness="$SUBLIME_TEXT_PACKAGES/LSPSmokeTest"
         mkdir -p "$harness"
         cp -R "$GITHUB_ACTION_PATH/harness/." "$harness"
-        # Copy the fixture out of the Packages folder, so that the server doesn't find the package's own configuration
-        # files (pyproject.toml, .editorconfig, ...) above it.
-        fixture="$RUNNER_TEMP/lsp-smoke-fixture"
-        rm -rf "$fixture"
-        cp -R "$FIXTURE_SRC" "$fixture"
-        python3 -c 'import json, sys; json.dump({"package": sys.argv[1], "fixture_dir": sys.argv[2]}, open(sys.argv[3], "w"))' \
-          "$PACKAGE" "$fixture" "$harness/smoke_config.json"
+        cp "$RUNNER_TEMP/lsp-smoke-config.json" "$harness/smoke_config.json"
         # Keep server messages in the log so the test can print them when it fails.
         mkdir -p "$SUBLIME_TEXT_PACKAGES/User"
         settings="$SUBLIME_TEXT_PACKAGES/User/LSP.sublime-settings"
