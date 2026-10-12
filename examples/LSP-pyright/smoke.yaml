@@ -2,5 +2,5 @@
 file: sample.py
 server: LSP-pyright
 expect:
-  source: pyright
-  severity: 1
+  source: Pyright
+  code: reportAssignmentType
