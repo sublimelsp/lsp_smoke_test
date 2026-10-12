@@ -7,6 +7,7 @@ with the path of a copy of the package's fixture directory.
 
 from __future__ import annotations
 
+from LSP.plugin import filename_to_uri
 from LSP.plugin.core.registry import windows
 from LSP.plugin.core.types import ClientStates
 from pathlib import Path
@@ -107,11 +108,11 @@ class SmokeTest(DeferrableTestCase):
         return bool(session and session.state == ClientStates.READY and session.session_view_for_view_async(self.view))
 
     def diagnostics(self) -> list[Diagnostic]:
+        # Check what the server reported rather than what LSP draws in the view, since the package is under test.
         session = self.find_session()
-        session_view = session.session_view_for_view_async(self.view) if session else None
-        if not session_view:
+        if not session:
             return []
-        return [diagnostic for diagnostic, _ in session_view.session_buffer.diagnostics]
+        return session.diagnostics.get_diagnostics_for_uri(filename_to_uri(self.config['file_path']))
 
     def failure_report(self, reason: str) -> str:
         lines = [reason]
