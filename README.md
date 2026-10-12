@@ -63,11 +63,10 @@ missing file fails the job right away.
 | `file` | | The file to open, relative to the fixture directory. |
 | `server` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
 | `expect` | `min_diagnostics: 1` | What to check, see below. |
-| `startup_timeout` | `120` | Seconds to wait for the server to start, including downloading or installing it. |
-| `diagnostics_timeout` | `30` | Seconds to wait for the expected diagnostics after the server has started. |
+| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. |
 
-`expect` is either `start`, which only checks that the server starts, or a mapping. With a mapping, the test waits for
-at least `min_diagnostics` diagnostics (default `1`) matching all of the given keys:
+`expect` describes the diagnostics to wait for: at least `min_diagnostics` (default `1`) diagnostics matching all of the
+given keys:
 
 | Key | Matches |
 |---|---|

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from LSP.plugin import filename_to_uri
 from LSP.plugin.core.registry import windows
-from LSP.plugin.core.types import ClientStates
 from pathlib import Path
 from typing import Any
 from typing import Generator
@@ -25,12 +24,11 @@ if TYPE_CHECKING:
     from LSP.protocol import Diagnostic
 
 PACKAGE_DIR = Path(__file__).parent.parent
-DEFAULT_STARTUP_TIMEOUT_S = 120
-DEFAULT_DIAGNOSTICS_TIMEOUT_S = 30
+# Also covers starting the server, which can include downloading or installing it.
+DEFAULT_DIAGNOSTICS_TIMEOUT_S = 180
 VIEW_LOAD_TIMEOUT_MS = 10_000
 SESSION_END_TIMEOUT_MS = 10_000
 LOG_LINES = 200
-STATE_NAMES = {ClientStates.STARTING: 'starting', ClientStates.READY: 'ready', ClientStates.STOPPING: 'stopping'}
 SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 # LSP logs protocol messages under this name instead of a server name.
 PROTOCOL_LOG_NAME = ':'
@@ -103,10 +101,6 @@ class SmokeTest(DeferrableTestCase):
             return None
         return wm.get_session(self.config['server'], self.config['file_path'])
 
-    def is_ready(self) -> bool:
-        session = self.find_session()
-        return bool(session and session.state == ClientStates.READY)
-
     def diagnostics(self) -> list[Diagnostic]:
         # Check what the server reported rather than what LSP draws in the view, since the package is under test.
         session = self.find_session()
@@ -118,9 +112,7 @@ class SmokeTest(DeferrableTestCase):
         lines = [reason]
         wm = windows.lookup(self.window)
         if wm:
-            sessions = (
-                ', '.join(f'{s.config.name} ({STATE_NAMES.get(s.state, s.state)})' for s in wm.get_sessions()) or 'none'
-            )
+            sessions = ', '.join(session.config.name for session in wm.get_sessions()) or 'none'
             # The log is only flushed to the panel when the panel is open, so read the buffered messages directly.
             log = getattr(wm, '_server_log', [])[-LOG_LINES:]
             diagnostics = self.diagnostics()
@@ -131,28 +123,21 @@ class SmokeTest(DeferrableTestCase):
         return '\n'.join(lines)
 
     def test_server(self) -> Generator[Any, None, None]:
-        server = self.config['server']
-        startup_timeout = self.config.get('startup_timeout', DEFAULT_STARTUP_TIMEOUT_S)
-        try:
-            yield {'condition': self.is_ready, 'timeout': startup_timeout * 1000}
-        except TimeoutError:
-            self.fail(self.failure_report(f'Server "{server}" did not start within {startup_timeout} seconds.'))
-
         expect = self.config['expect']
-        if expect == 'start':
-            return
         min_diagnostics = expect.get('min_diagnostics', 1)
-        diagnostics_timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
+        timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
 
         def matching() -> list[Diagnostic]:
             return [d for d in self.diagnostics() if diagnostic_matches(d, expect)]
 
         try:
-            yield {'condition': lambda: len(matching()) >= min_diagnostics, 'timeout': diagnostics_timeout * 1000}
+            yield {'condition': lambda: len(matching()) >= min_diagnostics, 'timeout': timeout * 1000}
         except TimeoutError:
-            self.fail(
-                self.failure_report(
+            if self.find_session():
+                reason = (
                     f'Expected at least {min_diagnostics} diagnostic(s) matching {json.dumps(expect)} '
-                    f'within {diagnostics_timeout} seconds, got {len(matching())}.'
+                    f'within {timeout} seconds, got {len(matching())}.'
                 )
-            )
+            else:
+                reason = f'Server "{self.config["server"]}" did not start within {timeout} seconds.'
+            self.fail(self.failure_report(reason))

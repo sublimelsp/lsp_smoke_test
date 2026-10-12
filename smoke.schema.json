@@ -18,29 +18,15 @@
       "minLength": 1
     },
     "expect": {
-      "description": "What to check. Either `start`, which only checks that the server starts, or a mapping describing the expected diagnostics.",
+      "description": "The diagnostics the server is expected to report.",
       "default": {"min_diagnostics": 1},
-      "oneOf": [
-        {
-          "description": "Only check that the server starts.",
-          "const": "start"
-        },
-        {
-          "$ref": "#/definitions/diagnostics"
-        }
-      ]
-    },
-    "startup_timeout": {
-      "description": "Seconds to wait for the server to start, including downloading or installing it.",
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "default": 120
+      "allOf": [{"$ref": "#/definitions/diagnostics"}]
     },
     "diagnostics_timeout": {
-      "description": "Seconds to wait for the expected diagnostics after the server has started.",
+      "description": "Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it.",
       "type": "number",
       "exclusiveMinimum": 0,
-      "default": 30
+      "default": 180
     }
   },
   "definitions": {

@@ -3,6 +3,3 @@ file: src/main.rs
 expect:
   source: rust-analyzer
   min_diagnostics: 1
-# The server is downloaded on first start, and loading the Cargo project takes a while.
-startup_timeout: 300
-diagnostics_timeout: 120

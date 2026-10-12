@@ -37,11 +37,10 @@ def main() -> None:
     if not (Path(fixture_dir) / smoke['file']).is_file():
         error(f'{smoke_file}: file "{smoke["file"]}" not found in the fixture directory')
     expect = smoke.get('expect', {'min_diagnostics': 1})
-    if expect != 'start':
-        if not isinstance(expect, dict):
-            error(f'{smoke_file}: "expect" must be "start" or a mapping')
-        if unknown := set(expect) - EXPECT_KEYS:
-            error(f'{smoke_file}: unknown keys in "expect" {sorted(unknown)}')
+    if not isinstance(expect, dict):
+        error(f'{smoke_file}: "expect" must be a mapping')
+    if unknown := set(expect) - EXPECT_KEYS:
+        error(f'{smoke_file}: unknown keys in "expect" {sorted(unknown)}')
     smoke['expect'] = expect
     smoke.setdefault('server', package)
     config = {'fixture_dir': fixture_dir, 'smoke': smoke}
