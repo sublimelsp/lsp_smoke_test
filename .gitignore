@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 .deps/
 .venv/
+
+# Created when rust-analyzer checks the example project.
+examples/LSP-rust-analyzer/Cargo.lock
+examples/LSP-rust-analyzer/target/
