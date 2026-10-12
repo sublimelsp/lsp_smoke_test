@@ -86,7 +86,7 @@ All inputs are optional.
 | Input | Default | Description |
 |---|---|---|
 | `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. |
-| `os` | `'["ubuntu-latest", "macos-latest"]'` | JSON list of runners. |
+| `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
 | `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`. |
 | `package-name` | Repository name | Name of the package under test. |
 
@@ -101,7 +101,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
