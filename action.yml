@@ -4,10 +4,13 @@ description: >-
   diagnostics.
 
 inputs:
-  package-path:
+  install-package:
     description: >-
-      Where the package under test is checked out. It must be a git checkout. Empty when there is no package under
-      test, for example when testing a library with packages from extra-packages.
+      Whether to install the package checked out at package-path. Set to false when there is no package under test,
+      for example when testing a library with packages from extra-packages.
+    default: 'true'
+  package-path:
+    description: Where the package under test is checked out. It must be a git checkout.
     default: '.'
   package-name:
     description: Name of the package under test. Derived from the repository name if empty.
@@ -44,6 +47,7 @@ runs:
       shell: bash
       env:
         INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
+        INPUT_INSTALL_PACKAGE: ${{ inputs.install-package }}
         INPUT_PACKAGE_PATH: ${{ inputs.package-path }}
         INPUT_FIXTURE_DIR: ${{ inputs.fixture-dir }}
         INPUT_LSP_REF: ${{ inputs.lsp-ref }}
@@ -55,8 +59,8 @@ runs:
       with:
         sublime-text-version: 4
         package-name: ${{ steps.prepare.outputs.package }}
-        install-package: ${{ inputs.package-path != '' }}
-        package-path: ${{ inputs.package-path || '.' }}
+        install-package: ${{ inputs.install-package }}
+        package-path: ${{ inputs.package-path }}
         extra-packages: |
           sublimelsp/LSP@${{ steps.prepare.outputs.lsp-ref }}
           ${{ inputs.extra-packages }}

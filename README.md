@@ -113,15 +113,16 @@ The action takes the same inputs as the workflow, except `os`, plus:
 
 | Input | Default | Description |
 |---|---|---|
-| `package-path` | `.` | Where the package under test is checked out. Empty when there is no package under test. |
+| `install-package` | `true` | Whether to install the package checked out at `package-path`. `false` when there is no package under test. |
+| `package-path` | `.` | Where the package under test is checked out. |
 | `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest tag is used. |
 | `local-libraries` | | Libraries to replace with a local copy, one per line, as `name=path` to the library's directory. |
 
 ## Testing a library
 
-A library such as lsp_utils can be tested through the packages that use it. Install them with `extra-packages`, set
-`package-path` to empty, replace the published library with the checkout using `local-libraries`, and give every
-`smoke.yaml` a `server`:
+A library such as lsp_utils can be tested through the packages that use it. Install them with `extra-packages`,
+set `install-package` to `false`, replace the published library with the checkout using `local-libraries`, and give
+every `smoke.yaml` a `server`:
 
 ```yaml
 steps:
@@ -130,7 +131,7 @@ steps:
       path: lsp_utils
   - uses: sublimelsp/lsp_smoke_test@v1
     with:
-      package-path: ''
+      install-package: false
       extra-packages: |
         sublimelsp/LSP-pyright
         sublimelsp/LSP-ruff

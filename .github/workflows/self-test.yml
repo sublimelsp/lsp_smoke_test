@@ -59,7 +59,7 @@ jobs:
       - name: Run smoke test
         uses: ./action
         with:
-          package-path: ''
+          install-package: false
           extra-packages: |
             sublimelsp/LSP-pyright
             sublimelsp/LSP-ruff
