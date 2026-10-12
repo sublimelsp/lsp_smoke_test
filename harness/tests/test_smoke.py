@@ -24,8 +24,10 @@ if TYPE_CHECKING:
     from LSP.protocol import Diagnostic
 
 PACKAGE_DIR = Path(__file__).parent.parent
-DEFAULT_STARTUP_TIMEOUT = 120
-DEFAULT_DIAGNOSTICS_TIMEOUT = 30
+DEFAULT_STARTUP_TIMEOUT_S = 120
+DEFAULT_DIAGNOSTICS_TIMEOUT_S = 30
+VIEW_LOAD_TIMEOUT_MS = 10_000
+SESSION_END_TIMEOUT_MS = 10_000
 LOG_LINES = 200
 STATE_NAMES = {ClientStates.STARTING: 'starting', ClientStates.READY: 'ready', ClientStates.STOPPING: 'stopping'}
 SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
@@ -82,13 +84,13 @@ class SmokeTest(DeferrableTestCase):
         # pick up the configuration of any other directory.
         self.window.set_project_data({'folders': [{'path': self.config['fixture_dir']}]})
         self.view = self.window.open_file(self.config['file_path'])
-        yield {'condition': lambda: not self.view.is_loading(), 'timeout': 10000}
+        yield {'condition': lambda: not self.view.is_loading(), 'timeout': VIEW_LOAD_TIMEOUT_MS}
 
     def tearDown(self) -> Generator[Any, None, None]:
         session = self.find_session()
         if session:
             sublime.set_timeout_async(session.end_async)
-            yield {'condition': lambda: self.find_session() is None, 'timeout': 10000}
+            yield {'condition': lambda: self.find_session() is None, 'timeout': SESSION_END_TIMEOUT_MS}
         if self.view.is_valid():
             self.view.set_scratch(True)
             self.view.close()
@@ -129,7 +131,7 @@ class SmokeTest(DeferrableTestCase):
 
     def test_server(self) -> Generator[Any, None, None]:
         server = self.config['server']
-        startup_timeout = self.config.get('startup_timeout', DEFAULT_STARTUP_TIMEOUT)
+        startup_timeout = self.config.get('startup_timeout', DEFAULT_STARTUP_TIMEOUT_S)
         try:
             yield {'condition': self.is_ready, 'timeout': startup_timeout * 1000}
         except TimeoutError:
@@ -139,7 +141,7 @@ class SmokeTest(DeferrableTestCase):
         if expect == 'start':
             return
         min_diagnostics = expect.get('min_diagnostics', 1)
-        diagnostics_timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT)
+        diagnostics_timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
 
         def matching() -> list[Diagnostic]:
             return [d for d in self.diagnostics() if diagnostic_matches(d, expect)]
