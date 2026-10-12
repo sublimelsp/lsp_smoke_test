@@ -47,18 +47,18 @@ def load_configs() -> list[dict[str, Any]]:
     return configs
 
 
-def diagnostic_matches(diagnostic: Diagnostic, expect: dict[str, Any]) -> bool:
-    if 'source' in expect and diagnostic.get('source') != expect['source']:
+def diagnostic_matches(diagnostic: Diagnostic, expected: dict[str, Any]) -> bool:
+    if 'source' in expected and diagnostic.get('source') != expected['source']:
         return False
-    if 'code' in expect and str(diagnostic.get('code')) != str(expect['code']):
+    if 'code' in expected and str(diagnostic.get('code')) != str(expected['code']):
         return False
-    if 'severity' in expect and diagnostic.get('severity') != expect['severity']:
+    if 'severity' in expected and diagnostic.get('severity') != expected['severity']:
         return False
-    if 'message' in expect:
+    if 'message' in expected:
         message = diagnostic['message']
         # The message can be MarkupContent since LSP 3.18.
         text = message if isinstance(message, str) else message['value']
-        if not re.search(expect['message'], text):
+        if not re.search(expected['message'], text):
             return False
     return True
 
@@ -152,19 +152,19 @@ class SmokeTest(DeferrableTestCase):
         return '\n'.join(lines)
 
     def test_server(self) -> Generator[Any, None, None]:
-        expect = self.config['expect']
-        min_diagnostics = expect.get('min_diagnostics', 1)
+        expected = self.config['expected_diagnostics']
+        min_count = expected.get('min_count', 1)
         timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
 
         def matching() -> list[Diagnostic]:
-            return [d for d in self.diagnostics() if diagnostic_matches(d, expect)]
+            return [d for d in self.diagnostics() if diagnostic_matches(d, expected)]
 
         try:
-            yield {'condition': lambda: len(matching()) >= min_diagnostics, 'timeout': timeout * 1000}
+            yield {'condition': lambda: len(matching()) >= min_count, 'timeout': timeout * 1000}
         except TimeoutError:
             if self.find_session():
                 reason = (
-                    f'Expected at least {min_diagnostics} diagnostic(s) matching {json.dumps(expect)} '
+                    f'Expected at least {min_count} diagnostic(s) matching {json.dumps(expected)} '
                     f'within {timeout} seconds, got {len(matching())}.'
                 )
             else:

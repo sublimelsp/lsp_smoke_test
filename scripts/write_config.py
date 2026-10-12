@@ -18,7 +18,7 @@ import yaml
 # Take the allowed keys from the schema that editors use, so that the two can't get out of sync.
 SCHEMA = json.loads((Path(__file__).parent.parent / 'smoke.schema.json').read_text(encoding='utf-8'))
 SMOKE_KEYS = set(SCHEMA['properties'])
-EXPECT_KEYS = set(SCHEMA['definitions']['diagnostics']['properties'])
+EXPECTED_KEYS = set(SCHEMA['definitions']['diagnostics']['properties'])
 SETTINGS_SUFFIX = '.sublime-settings'
 
 
@@ -47,17 +47,17 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         error(f'{smoke_file}: file "{smoke["file"]}" not found in the fixture directory')
     if 'server' not in smoke and not package:
         error(f'{smoke_file}: "server" is required when there is no package under test')
-    expect = smoke.get('expect', {'min_diagnostics': 1})
-    if not isinstance(expect, dict):
-        error(f'{smoke_file}: "expect" must be a mapping')
-    if unknown := set(expect) - EXPECT_KEYS:
-        error(f'{smoke_file}: unknown keys in "expect" {sorted(unknown)}')
+    expected = smoke.get('expected_diagnostics', {'min_count': 1})
+    if not isinstance(expected, dict):
+        error(f'{smoke_file}: "expected_diagnostics" must be a mapping')
+    if unknown := set(expected) - EXPECTED_KEYS:
+        error(f'{smoke_file}: unknown keys in "expected_diagnostics" {sorted(unknown)}')
     settings = smoke.get('settings', {})
     if not isinstance(settings, dict) or not all(
         name.endswith(SETTINGS_SUFFIX) and isinstance(values, dict) for name, values in settings.items()
     ):
         error(f'{smoke_file}: "settings" must map *{SETTINGS_SUFFIX} file names to mappings')
-    smoke['expect'] = expect
+    smoke['expected_diagnostics'] = expected
     smoke['settings'] = settings
     smoke.setdefault('server', package)
     return smoke

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../smoke.schema.json
 file: src/main.rs
-expect:
+expected_diagnostics:
   source: rust-analyzer
-  min_diagnostics: 1
+  min_count: 1

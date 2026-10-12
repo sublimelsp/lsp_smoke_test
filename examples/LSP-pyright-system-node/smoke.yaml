@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../../smoke.schema.json
 file: sample.py
 server: LSP-pyright
-expect:
+expected_diagnostics:
   source: Pyright
   code: reportAssignmentType
 # Run the server with the Node.js installed on the system instead of the one lsp_utils downloads.

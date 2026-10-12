@@ -1,4 +1,4 @@
 # yaml-language-server: $schema=../../smoke.schema.json
 file: invalid.json
-expect:
-  min_diagnostics: 1
+expected_diagnostics:
+  min_count: 1

@@ -17,9 +17,9 @@
       "type": "string",
       "minLength": 1
     },
-    "expect": {
+    "expected_diagnostics": {
       "description": "The diagnostics the server is expected to report.",
-      "default": {"min_diagnostics": 1},
+      "default": {"min_count": 1},
       "allOf": [{"$ref": "#/definitions/diagnostics"}]
     },
     "settings": {
@@ -38,11 +38,11 @@
   },
   "definitions": {
     "diagnostics": {
-      "description": "Wait for at least `min_diagnostics` diagnostics matching all of the given keys.",
+      "description": "Wait for at least `min_count` diagnostics matching all of the given keys.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "min_diagnostics": {
+        "min_count": {
           "description": "Minimum number of matching diagnostics.",
           "type": "integer",
           "minimum": 1,

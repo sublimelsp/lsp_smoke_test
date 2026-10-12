@@ -36,7 +36,7 @@ tests/smoke/
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/sublimelsp/lsp_smoke_test/v1/smoke.schema.json
 file: sample.py
-expect:
+expected_diagnostics:
   source: Ruff
   code: F401
 ```
@@ -55,19 +55,19 @@ See [examples](examples) for more.
 
 ## smoke.yaml
 
-`smoke.yml` works too. The file is checked against the schema's keys before Sublime Text is installed, so a mistake such as an unknown key or a
-missing file fails the job right away.
+`smoke.yml` works too. The file is checked against the schema's keys before Sublime Text is installed, so a mistake
+such as an unknown key or a missing file fails the job right away.
 
 | Key | Default | Description |
 |---|---|---|
 | `file` | | The file to open, relative to the fixture directory. |
 | `server` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
-| `expect` | `min_diagnostics: 1` | What to check, see below. |
+| `expected_diagnostics` | `min_count: 1` | The diagnostics to wait for, see below. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
 | `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. |
 
-`expect` describes the diagnostics to wait for: at least `min_diagnostics` (default `1`) diagnostics matching all of the
-given keys:
+`expected_diagnostics` describes the diagnostics to wait for: at least `min_count` (default `1`) diagnostics matching
+all of the given keys:
 
 | Key | Matches |
 |---|---|
