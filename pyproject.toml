@@ -1,0 +1,70 @@
+[project]
+name = "lsp-smoke-test"
+version = "0"
+description = "Smoke test for LSP packages for Sublime Text"
+requires-python = ">=3.8"
+
+[dependency-groups]
+dev = [
+    "pyright==1.1.414",
+    "ruff==0.17.0",
+    "sublime-text-stubs==1.4200.0b2",
+]
+
+[tool.uv]
+package = false
+
+[tool.pyright]
+include = ["harness"]
+# LSP and UnitTesting are not published on PyPI. Clone them into .deps to type-check against them:
+#   git clone --depth 1 https://github.com/sublimelsp/LSP.git .deps/LSP
+#   git clone --depth 1 https://github.com/SublimeText/UnitTesting.git .deps/UnitTesting
+extraPaths = [".deps", ".deps/UnitTesting"]
+pythonVersion = "3.8"
+reportMissingModuleSource = "none"
+typeCheckingMode = "standard"
+executionEnvironments = [
+    # UnitTesting's deferred test cases use generators for setUp and tearDown.
+    { root = "harness/tests", reportIncompatibleMethodOverride = "none" },
+]
+
+[tool.ruff]
+exclude = [".deps", "examples"]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+# Refer to https://docs.astral.sh/ruff/rules/
+ignore = [
+    "any-type",
+    "missing-copyright-notice",
+    "missing-trailing-comma",
+    "undocumented-public-module",
+    "undocumented-public-class",
+    "undocumented-public-method",
+    "undocumented-public-function",
+    "undocumented-public-package",
+    "docstring-missing-returns",
+    "docstring-missing-yields",
+    "incorrect-blank-line-before-class",
+    "multi-line-summary-first-line",
+    "no-self-use",
+    "bad-quotes-inline-string",
+    "pytest-unittest-assertion",
+]
+
+[tool.ruff.lint.isort]
+case-sensitive = false
+force-single-line = true
+from-first = true
+no-sections = true
+order-by-type = false
+required-imports = ["from __future__ import annotations"]

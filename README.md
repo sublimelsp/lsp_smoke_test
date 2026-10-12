@@ -104,6 +104,21 @@ jobs:
 The action takes the same inputs as the workflow, except `os`, plus `package-path` (default `.`) for where the package
 is checked out.
 
+## Development
+
+LSP and UnitTesting are not on PyPI, so clone them for type checking:
+
+```sh
+git clone --depth 1 https://github.com/sublimelsp/LSP.git .deps/LSP
+git clone --depth 1 https://github.com/SublimeText/UnitTesting.git .deps/UnitTesting
+uv sync
+uv run pyright
+uv run ruff check
+uv run ruff format --check
+```
+
+The harness runs in Sublime Text's Python 3.8 plugin host, so it must stay compatible with Python 3.8.
+
 ## Releases
 
 Callers use the `v1` tag. After a change, move it to the new commit:
