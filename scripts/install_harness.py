@@ -30,11 +30,11 @@ def main() -> None:
     harness = packages / HARNESS_NAME
     shutil.copytree(ACTION_DIR / 'harness', harness, dirs_exist_ok=True)
     shutil.copyfile(Path(os.environ['RUNNER_TEMP'], 'lsp-smoke-config.json'), harness / 'smoke_config.json')
-    # Keep server messages in the log so the test can print them when it fails.
+    # Print LSP's debug messages to the console, which UnitTesting includes in the job log.
     settings = packages / 'User' / 'LSP.sublime-settings'
     if not settings.exists():
         settings.parent.mkdir(parents=True, exist_ok=True)
-        settings.write_text(json.dumps({'log_debug': True, 'log_server': ['panel']}), encoding='utf-8')
+        settings.write_text(json.dumps({'log_debug': True}), encoding='utf-8')
 
 
 if __name__ == '__main__':
