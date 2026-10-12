@@ -34,3 +34,37 @@ jobs:
           package-path: package
           package-name: ${{ matrix.package }}
           fixture-dir: ${{ github.workspace }}/action/examples/${{ matrix.package }}
+
+  # Tests a library instead of a package: the packages come from extra-packages, and lsp_utils is replaced with a
+  # checkout of its default branch. Several fixtures run in one Sublime Text session, one of them with settings.
+  library:
+    name: lsp_utils (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out action
+        uses: actions/checkout@v7
+        with:
+          path: action
+
+      - name: Check out lsp_utils
+        uses: actions/checkout@v7
+        with:
+          repository: sublimelsp/lsp_utils
+          path: lsp_utils
+
+      - name: Run smoke test
+        uses: ./action
+        with:
+          package-path: ''
+          extra-packages: |
+            sublimelsp/LSP-pyright
+            sublimelsp/LSP-ruff
+          local-libraries: lsp_utils=lsp_utils/lsp_utils
+          fixture-dir: |
+            ${{ github.workspace }}/action/examples/LSP-pyright
+            ${{ github.workspace }}/action/examples/LSP-pyright-system-node
+            ${{ github.workspace }}/action/examples/LSP-ruff

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../smoke.schema.json
+file: sample.py
+server: LSP-pyright
+expect:
+  source: pyright
+  severity: 1
+# Run the server with the Node.js installed on the system instead of the one lsp_utils downloads.
+settings:
+  lsp_utils.sublime-settings:
+    nodejs_runtime: [system]

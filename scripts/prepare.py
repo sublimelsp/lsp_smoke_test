@@ -1,8 +1,8 @@
 """
-Resolve the action's inputs, validate smoke.yaml and prepare the fixture.
+Resolve the action's inputs, validate the smoke.yaml files and prepare the fixtures.
 
 Runs on the GitHub runner before Sublime Text is installed, so that configuration mistakes fail the job right away.
-Writes the `package` and `lsp-ref` step outputs, and `lsp-smoke-config.json` and `lsp-smoke-fixture` in the runner's
+Writes the `package` and `lsp-ref` step outputs, and `lsp-smoke-config.json` and `lsp-smoke-fixtures` in the runner's
 temporary directory for install_harness.py.
 """
 
@@ -37,13 +37,6 @@ def latest_lsp_release(token: str) -> str:
         return json.load(response)['tag_name']
 
 
-def find_smoke_file(fixture_dir: Path) -> Path:
-    for name in ('smoke.yaml', 'smoke.yml'):
-        if (path := fixture_dir / name).is_file():
-            return path
-    error(f'smoke.yaml not found in {fixture_dir}')
-
-
 def venv_python(venv_dir: Path) -> Path:
     if sys.platform == 'win32':
         return venv_dir / 'Scripts' / 'python.exe'
@@ -53,18 +46,28 @@ def venv_python(venv_dir: Path) -> Path:
 def main() -> None:
     env = os.environ
     temp_dir = Path(env['RUNNER_TEMP'])
-    package = env['INPUT_PACKAGE_NAME'] or env['GITHUB_REPOSITORY'].split('/', 1)[1]
+    package_path = env['INPUT_PACKAGE_PATH']
+    # Without a package under test, every smoke.yaml has to name its server.
+    package = env['INPUT_PACKAGE_NAME'] or (env['GITHUB_REPOSITORY'].split('/', 1)[1] if package_path else '')
     lsp_ref = env['INPUT_LSP_REF'] or latest_lsp_release(env['INPUT_GITHUB_TOKEN'])
     # An absolute fixture-dir is used as is, since joining an absolute path replaces the base.
-    fixture_src = Path(env['INPUT_PACKAGE_PATH'], env['INPUT_FIXTURE_DIR']).resolve()
-    smoke_file = find_smoke_file(fixture_src)
-    print(f'Testing {package} against sublimelsp/LSP@{lsp_ref} with {smoke_file}', flush=True)
+    lines = [line.strip() for line in env['INPUT_FIXTURE_DIR'].splitlines() if line.strip()]
+    fixture_srcs = [Path(package_path, line).resolve() for line in lines]
+    names = [path.name for path in fixture_srcs]
+    if duplicates := sorted({name for name in names if names.count(name) > 1}):
+        error(f'fixture directories must have different names: {duplicates}')
+    print(f'Testing {package or "packages"} against sublimelsp/LSP@{lsp_ref}', flush=True)
 
-    # Copy the fixture out of the package checkout, so that the server doesn't find the package's own configuration
-    # files (pyproject.toml, .editorconfig, ...) above it.
-    fixture = temp_dir / 'lsp-smoke-fixture'
-    shutil.rmtree(fixture, ignore_errors=True)
-    shutil.copytree(fixture_src, fixture)
+    # Copy the fixtures out of the package checkout, so that the server doesn't find the package's own configuration
+    # files (pyproject.toml, .editorconfig, ...) above them.
+    fixtures_dir = temp_dir / 'lsp-smoke-fixtures'
+    shutil.rmtree(fixtures_dir, ignore_errors=True)
+    fixtures = []
+    for src in fixture_srcs:
+        if not src.is_dir():
+            error(f'fixture directory {src} not found')
+        shutil.copytree(src, fixtures_dir / src.name)
+        fixtures.append(str(fixtures_dir / src.name))
 
     # PyYAML isn't available on all runners, so install it into a separate environment.
     venv_dir = temp_dir / 'lsp-smoke-venv'
@@ -74,17 +77,9 @@ def main() -> None:
         [python, '-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', f'pyyaml=={PYYAML_VERSION}'],
         check=True,
     )
+    config = str(temp_dir / 'lsp-smoke-config.json')
     result = subprocess.run(
-        [
-            python,
-            '-B',
-            str(SCRIPTS_DIR / 'write_config.py'),
-            package,
-            str(smoke_file),
-            str(fixture),
-            str(temp_dir / 'lsp-smoke-config.json'),
-        ],
-        check=False,
+        [python, '-B', str(SCRIPTS_DIR / 'write_config.py'), package, config, *fixtures], check=False
     )
     if result.returncode:
         sys.exit(result.returncode)

@@ -1,19 +1,32 @@
 name: LSP smoke test
 description: >-
-  Install an LSP package in Sublime Text, open a sample file and check that the language server starts and reports the
-  expected diagnostics.
+  Install LSP packages in Sublime Text, open sample files and check that their language servers report the expected
+  diagnostics.
 
 inputs:
   package-path:
-    description: Where the package under test is checked out. It must be a git checkout.
+    description: >-
+      Where the package under test is checked out. It must be a git checkout. Empty when there is no package under
+      test, for example when testing a library with packages from extra-packages.
     default: '.'
   package-name:
     description: Name of the package under test. Derived from the repository name if empty.
     default: ''
   fixture-dir:
     description: >-
-      Directory containing smoke.yaml and the files it refers to. Relative to package-path, or an absolute path.
+      Directories containing smoke.yaml and the files it refers to, one per line. Each one is a separate test, all run
+      in the same Sublime Text session. Relative to package-path, or absolute paths.
     default: tests/smoke
+  extra-packages:
+    description: >-
+      Other packages to install, one per line, in the form user/repo@ref or package:user/repo@ref. Without @ref, the
+      latest tag is used.
+    default: ''
+  local-libraries:
+    description: >-
+      Libraries to replace with a local copy after Package Control has installed them, one per line, in the form
+      name=path. The path is the library's directory, for example lsp_utils=lsp_utils/lsp_utils.
+    default: ''
   lsp-ref:
     description: Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
     default: ''
@@ -42,12 +55,16 @@ runs:
       with:
         sublime-text-version: 4
         package-name: ${{ steps.prepare.outputs.package }}
-        package-path: ${{ inputs.package-path }}
+        install-package: ${{ inputs.package-path != '' }}
+        package-path: ${{ inputs.package-path || '.' }}
         extra-packages: |
           sublimelsp/LSP@${{ steps.prepare.outputs.lsp-ref }}
+          ${{ inputs.extra-packages }}
 
     - name: Install smoke test harness
       shell: bash
+      env:
+        INPUT_LOCAL_LIBRARIES: ${{ inputs.local-libraries }}
       run: python "$GITHUB_ACTION_PATH/scripts/install_harness.py"
 
     - name: Run smoke test

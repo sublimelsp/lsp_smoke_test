@@ -1,8 +1,8 @@
 """
 Generic smoke test for LSP packages.
 
-The action validates the package's `smoke.yaml` and writes it as `smoke_config.json` next to this package, together
-with the path of a copy of the package's fixture directory.
+The action validates the `smoke.yaml` of each fixture and writes them to `smoke_config.json` next to this package,
+together with the paths of copies of the fixture directories. This module creates one test case per fixture.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from LSP.plugin import filename_to_uri
 from LSP.plugin.core.registry import windows
 from pathlib import Path
 from typing import Any
+from typing import ClassVar
 from typing import Generator
 from typing import TYPE_CHECKING
 from unittesting import DeferrableTestCase
@@ -34,13 +35,16 @@ SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 PROTOCOL_LOG_NAME = ':'
 
 
-def load_config() -> dict[str, Any]:
-    config = json.loads((PACKAGE_DIR / 'smoke_config.json').read_text(encoding='utf-8'))
-    fixture_dir = Path(config['fixture_dir'])
-    smoke = config['smoke']
-    smoke['fixture_dir'] = str(fixture_dir)
-    smoke['file_path'] = str(fixture_dir / smoke['file'])
-    return smoke
+def load_configs() -> list[dict[str, Any]]:
+    configs = []
+    for test in json.loads((PACKAGE_DIR / 'smoke_config.json').read_text(encoding='utf-8'))['tests']:
+        fixture_dir = Path(test['fixture_dir'])
+        smoke = test['smoke']
+        smoke['name'] = test['name']
+        smoke['fixture_dir'] = str(fixture_dir)
+        smoke['file_path'] = str(fixture_dir / smoke['file'])
+        configs.append(smoke)
+    return configs
 
 
 def diagnostic_matches(diagnostic: Diagnostic, expect: dict[str, Any]) -> bool:
@@ -75,8 +79,11 @@ def format_log_line(name: str, message: str) -> str:
 
 
 class SmokeTest(DeferrableTestCase):
+    # Set on the subclass created for each fixture, see the end of this module.
+    config: ClassVar[dict[str, Any]]
+
     def setUp(self) -> Generator[Any, None, None]:
-        self.config = load_config()
+        self.apply_settings()
         self.window = sublime.active_window()
         self.previous_project_data = self.window.project_data()
         # Use the fixture directory as the only folder, so that the server gets it as the workspace root and doesn't
@@ -94,6 +101,28 @@ class SmokeTest(DeferrableTestCase):
             self.view.set_scratch(True)
             self.view.close()
         self.window.set_project_data(self.previous_project_data or {})
+
+    def apply_settings(self) -> None:
+        # Settings have to be in place before the file is opened, since that starts the server. Cleanups run even when
+        # setUp fails, unlike tearDown, so the settings never leak into the next test.
+        self.previous_settings: dict[str, dict[str, tuple[bool, Any]]] = {}
+        self.addCleanup(self.restore_settings)
+        for name, values in self.config['settings'].items():
+            settings = sublime.load_settings(name)
+            self.previous_settings[name] = {key: (settings.has(key), settings.get(key)) for key in values}
+            for key, value in values.items():
+                settings.set(key, value)
+            sublime.save_settings(name)
+
+    def restore_settings(self) -> None:
+        for name, previous in self.previous_settings.items():
+            settings = sublime.load_settings(name)
+            for key, (existed, value) in previous.items():
+                if existed:
+                    settings.set(key, value)
+                else:
+                    settings.erase(key)
+            sublime.save_settings(name)
 
     def find_session(self) -> Session | None:
         wm = windows.lookup(self.window)
@@ -141,3 +170,10 @@ class SmokeTest(DeferrableTestCase):
             else:
                 reason = f'Server "{self.config["server"]}" did not start within {timeout} seconds.'
             self.fail(self.failure_report(reason))
+
+
+# Create a test case for each fixture. The base class is removed from the module, so that it isn't run on its own.
+for _config in load_configs():
+    _name = 'Smoke_' + re.sub(r'\W', '_', _config['name'])
+    globals()[_name] = type(_name, (SmokeTest,), {'config': _config})
+del SmokeTest

@@ -63,6 +63,7 @@ missing file fails the job right away.
 | `file` | | The file to open, relative to the fixture directory. |
 | `server` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
 | `expect` | `min_diagnostics: 1` | What to check, see below. |
+| `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
 | `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. |
 
 `expect` describes the diagnostics to wait for: at least `min_diagnostics` (default `1`) diagnostics matching all of the
@@ -86,7 +87,7 @@ All inputs are optional.
 |---|---|---|
 | `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. |
 | `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
-| `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`. |
+| `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`, or several, one per line. Each directory is a separate test, all run in the same Sublime Text session, so they need different names. |
 | `package-name` | Repository name | Name of the package under test. |
 
 ## Servers that need a toolchain
@@ -108,8 +109,38 @@ jobs:
       - uses: sublimelsp/lsp_smoke_test@v1
 ```
 
-The action takes the same inputs as the workflow, except `os`, plus `package-path` (default `.`) for where the package
-is checked out.
+The action takes the same inputs as the workflow, except `os`, plus:
+
+| Input | Default | Description |
+|---|---|---|
+| `package-path` | `.` | Where the package under test is checked out. Empty when there is no package under test. |
+| `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest tag is used. |
+| `local-libraries` | | Libraries to replace with a local copy, one per line, as `name=path` to the library's directory. |
+
+## Testing a library
+
+A library such as lsp_utils can be tested through the packages that use it. Install them with `extra-packages`, set
+`package-path` to empty, replace the published library with the checkout using `local-libraries`, and give every
+`smoke.yaml` a `server`:
+
+```yaml
+steps:
+  - uses: actions/checkout@v7
+    with:
+      path: lsp_utils
+  - uses: sublimelsp/lsp_smoke_test@v1
+    with:
+      package-path: ''
+      extra-packages: |
+        sublimelsp/LSP-pyright
+        sublimelsp/LSP-ruff
+      local-libraries: lsp_utils=lsp_utils/lsp_utils
+      fixture-dir: |
+        lsp_utils/tests/smoke/pyright
+        lsp_utils/tests/smoke/ruff
+```
+
+The library is replaced after Package Control has installed it, so at least one of the packages must depend on it.
 
 ## Development
 
