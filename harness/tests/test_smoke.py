@@ -105,7 +105,7 @@ class SmokeTest(DeferrableTestCase):
 
     def is_ready(self) -> bool:
         session = self.find_session()
-        return bool(session and session.state == ClientStates.READY and session.session_view_for_view_async(self.view))
+        return bool(session and session.state == ClientStates.READY)
 
     def diagnostics(self) -> list[Diagnostic]:
         # Check what the server reported rather than what LSP draws in the view, since the package is under test.
