@@ -14,6 +14,7 @@ from typing import Any
 from typing import Generator
 from typing import TYPE_CHECKING
 from unittesting import DeferrableTestCase
+import itertools
 import json
 import re
 import sublime
@@ -27,6 +28,9 @@ DEFAULT_STARTUP_TIMEOUT = 120
 DEFAULT_DIAGNOSTICS_TIMEOUT = 30
 LOG_LINES = 200
 STATE_NAMES = {ClientStates.STARTING: 'starting', ClientStates.READY: 'ready', ClientStates.STOPPING: 'stopping'}
+SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
+# LSP logs protocol messages under this name instead of a server name.
+PROTOCOL_LOG_NAME = ':'
 
 
 def load_config() -> dict[str, Any]:
@@ -52,6 +56,21 @@ def diagnostic_matches(diagnostic: Diagnostic, expect: dict[str, Any]) -> bool:
         if not re.search(expect['message'], text):
             return False
     return True
+
+
+def format_diagnostic(diagnostic: Diagnostic) -> str:
+    start = diagnostic['range']['start']
+    message = diagnostic['message']
+    text = message if isinstance(message, str) else message['value']
+    severity = SEVERITY_NAMES.get(diagnostic.get('severity', 1), 'error')
+    return (
+        f'  {start["line"] + 1}:{start["character"] + 1} {severity} '
+        f'source={diagnostic.get("source")!r} code={diagnostic.get("code")!r}: {text.splitlines()[0] if text else ""}'
+    )
+
+
+def format_log_line(name: str, message: str) -> str:
+    return f'  {message}' if name == PROTOCOL_LOG_NAME else f'  {name}: {message}'
 
 
 class SmokeTest(DeferrableTestCase):
@@ -101,14 +120,11 @@ class SmokeTest(DeferrableTestCase):
             )
             # The log is only flushed to the panel when the panel is open, so read the buffered messages directly.
             log = getattr(wm, '_server_log', [])[-LOG_LINES:]
-            lines.extend(
-                (
-                    f'Sessions in window: {sessions}',
-                    f'Diagnostics received: {json.dumps(self.diagnostics(), indent=2)}',
-                    f'Last {len(log)} server log lines:',
-                )
-            )
-            lines.extend(f'  {name}: {message}' for name, message in log)
+            diagnostics = self.diagnostics()
+            lines.extend((f'Sessions in window: {sessions}', f'Diagnostics received: {len(diagnostics)}'))
+            lines.extend(map(format_diagnostic, diagnostics))
+            lines.append(f'Last {len(log)} server log lines:')
+            lines.extend(itertools.starmap(format_log_line, log))
         return '\n'.join(lines)
 
     def test_server(self) -> Generator[Any, None, None]:
