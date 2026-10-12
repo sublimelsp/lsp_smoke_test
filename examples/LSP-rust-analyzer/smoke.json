@@ -1,0 +1,6 @@
+{
+    "file": "src/main.rs",
+    "expect": {"source": "rust-analyzer", "min_diagnostics": 1},
+    "startup_timeout": 300,
+    "diagnostics_timeout": 120
+}

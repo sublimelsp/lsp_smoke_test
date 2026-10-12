@@ -1,0 +1,51 @@
+name: LSP smoke test
+
+on:
+  workflow_call:
+    inputs:
+      lsp-ref:
+        description: Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
+        type: string
+        default: ''
+      os:
+        description: JSON list of runners to test on.
+        type: string
+        default: '["ubuntu-latest", "macos-latest"]'
+      fixture-dir:
+        description: Directory containing smoke.json, relative to the repository root.
+        type: string
+        default: tests/smoke
+      package-name:
+        description: Name of the package under test. Derived from the repository name if empty.
+        type: string
+        default: ''
+
+jobs:
+  smoke:
+    name: Smoke test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.os) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out package
+        uses: actions/checkout@v7
+        with:
+          path: package
+
+      # Use the action from the same commit as this workflow, so that callers only pin one version.
+      - name: Check out smoke test action
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .lsp_smoke_test
+
+      - name: Run smoke test
+        uses: ./.lsp_smoke_test
+        with:
+          package-path: package
+          package-name: ${{ inputs.package-name }}
+          fixture-dir: ${{ inputs.fixture-dir }}
+          lsp-ref: ${{ inputs.lsp-ref }}

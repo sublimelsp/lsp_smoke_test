@@ -1,0 +1,4 @@
+{
+    "file": "sample.py",
+    "expect": {"source": "Ruff", "code": "F401"}
+}

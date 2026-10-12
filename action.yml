@@ -1,0 +1,89 @@
+name: LSP smoke test
+description: >-
+  Install an LSP package in Sublime Text, open a sample file and check that the language server starts and reports the
+  expected diagnostics.
+
+inputs:
+  package-path:
+    description: Where the package under test is checked out. It must be a git checkout.
+    default: '.'
+  package-name:
+    description: Name of the package under test. Derived from the repository name if empty.
+    default: ''
+  fixture-dir:
+    description: >-
+      Directory containing smoke.json and the files it refers to. Relative to package-path, or an absolute path.
+    default: tests/smoke
+  lsp-ref:
+    description: Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
+    default: ''
+  github-token:
+    description: Token used to look up the latest LSP release.
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve inputs
+      id: resolve
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
+        INPUT_PACKAGE_PATH: ${{ inputs.package-path }}
+        INPUT_FIXTURE_DIR: ${{ inputs.fixture-dir }}
+        INPUT_LSP_REF: ${{ inputs.lsp-ref }}
+      run: |
+        package="${INPUT_PACKAGE_NAME:-${GITHUB_REPOSITORY#*/}}"
+        lsp_ref="${INPUT_LSP_REF:-$(gh release view --repo sublimelsp/LSP --json tagName -q .tagName)}"
+        case "$INPUT_FIXTURE_DIR" in
+          /*) fixture_dir="$INPUT_FIXTURE_DIR" ;;
+          *) fixture_dir="$INPUT_PACKAGE_PATH/$INPUT_FIXTURE_DIR" ;;
+        esac
+        if [ ! -f "$fixture_dir/smoke.json" ]; then
+          echo "::error::$fixture_dir/smoke.json not found"
+          exit 1
+        fi
+        echo "Testing $package against sublimelsp/LSP@$lsp_ref with fixture $fixture_dir"
+        {
+          echo "package=$package"
+          echo "lsp-ref=$lsp_ref"
+          echo "fixture-dir=$fixture_dir"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Set up Sublime Text
+      uses: SublimeText/UnitTesting/actions/setup@v1
+      with:
+        sublime-text-version: 4
+        package-name: ${{ steps.resolve.outputs.package }}
+        package-path: ${{ inputs.package-path }}
+        extra-packages: |
+          sublimelsp/LSP@${{ steps.resolve.outputs.lsp-ref }}
+
+    - name: Install smoke test harness
+      shell: bash
+      env:
+        PACKAGE: ${{ steps.resolve.outputs.package }}
+        FIXTURE_SRC: ${{ steps.resolve.outputs.fixture-dir }}
+      run: |
+        harness="$SUBLIME_TEXT_PACKAGES/LSPSmokeTest"
+        mkdir -p "$harness"
+        cp -R "$GITHUB_ACTION_PATH/harness/." "$harness"
+        # Copy the fixture out of the Packages folder, so that the server doesn't find the package's own configuration
+        # files (pyproject.toml, .editorconfig, ...) above it.
+        fixture="$RUNNER_TEMP/lsp-smoke-fixture"
+        rm -rf "$fixture"
+        cp -R "$FIXTURE_SRC" "$fixture"
+        python3 -c 'import json, sys; json.dump({"package": sys.argv[1], "fixture_dir": sys.argv[2]}, open(sys.argv[3], "w"))' \
+          "$PACKAGE" "$fixture" "$harness/smoke_config.json"
+        # Keep server messages in the log so the test can print them when it fails.
+        mkdir -p "$SUBLIME_TEXT_PACKAGES/User"
+        settings="$SUBLIME_TEXT_PACKAGES/User/LSP.sublime-settings"
+        if [ ! -f "$settings" ]; then
+          echo '{"log_debug": true, "log_server": ["panel"]}' > "$settings"
+        fi
+
+    - name: Run smoke test
+      uses: SublimeText/UnitTesting/actions/run-tests@v1
+      with:
+        package-name: LSPSmokeTest

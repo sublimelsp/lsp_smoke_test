@@ -1,0 +1,36 @@
+name: Self-test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: ${{ matrix.package }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        package: [LSP-json, LSP-ruff, LSP-rust-analyzer]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out action
+        uses: actions/checkout@v7
+        with:
+          path: action
+
+      - name: Check out ${{ matrix.package }}
+        uses: actions/checkout@v7
+        with:
+          repository: sublimelsp/${{ matrix.package }}
+          path: package
+
+      - name: Run smoke test
+        uses: ./action
+        with:
+          package-path: package
+          package-name: ${{ matrix.package }}
+          fixture-dir: ${{ github.workspace }}/action/examples/${{ matrix.package }}

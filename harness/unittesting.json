@@ -1,0 +1,9 @@
+{
+    "deferred": true,
+    "verbosity": 2,
+    "capture_console": true,
+    "failfast": false,
+    "reload_package_on_testing": false,
+    "output": null,
+    "generate_html_report": false
+}
