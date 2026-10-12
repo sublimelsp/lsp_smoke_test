@@ -66,7 +66,14 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Command line scripts run by the action, not a package.
-"scripts/*" = ["implicit-namespace-package", "print"]
+"scripts/*" = [
+    "implicit-namespace-package",
+    "print",
+    # The scripts only run fixed commands and open a fixed https URL.
+    "suspicious-subprocess-import",
+    "subprocess-without-shell-equals-true",
+    "suspicious-url-open-usage",
+]
 
 [tool.ruff.lint.isort]
 case-sensitive = false

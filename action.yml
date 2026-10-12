@@ -24,100 +24,34 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Resolve inputs
-      id: resolve
-      shell: bash
+    # The logic lives in scripts/, the steps only run it. `shell: python` works on all runners.
+    - name: Prepare
+      id: prepare
+      shell: python
       env:
-        GH_TOKEN: ${{ inputs.github-token }}
         INPUT_PACKAGE_NAME: ${{ inputs.package-name }}
         INPUT_PACKAGE_PATH: ${{ inputs.package-path }}
         INPUT_FIXTURE_DIR: ${{ inputs.fixture-dir }}
         INPUT_LSP_REF: ${{ inputs.lsp-ref }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
-        # On Windows, use paths like D:/a/... which work in this shell, in Python and in Sublime Text.
-        native_path() {
-          if [ "$RUNNER_OS" = Windows ]; then cygpath -m "$1"; else printf '%s' "$1"; fi
-        }
-        package="${INPUT_PACKAGE_NAME:-${GITHUB_REPOSITORY#*/}}"
-        lsp_ref="${INPUT_LSP_REF:-$(gh release view --repo sublimelsp/LSP --json tagName -q .tagName)}"
-        case "$INPUT_FIXTURE_DIR" in
-          /* | [A-Za-z]:*) fixture_dir="$INPUT_FIXTURE_DIR" ;;
-          *) fixture_dir="$INPUT_PACKAGE_PATH/$INPUT_FIXTURE_DIR" ;;
-        esac
-        fixture_dir="$(native_path "$fixture_dir")"
-        smoke_file=""
-        for name in smoke.yaml smoke.yml; do
-          if [ -f "$fixture_dir/$name" ]; then
-            smoke_file="$fixture_dir/$name"
-            break
-          fi
-        done
-        if [ -z "$smoke_file" ]; then
-          echo "::error::smoke.yaml not found in $fixture_dir"
-          exit 1
-        fi
-        echo "Testing $package against sublimelsp/LSP@$lsp_ref with fixture $fixture_dir"
-        {
-          echo "package=$package"
-          echo "lsp-ref=$lsp_ref"
-          echo "fixture-dir=$fixture_dir"
-          echo "smoke-file=$smoke_file"
-          echo "temp-dir=$(native_path "$RUNNER_TEMP")"
-          echo "action-path=$(native_path "$GITHUB_ACTION_PATH")"
-        } >> "$GITHUB_OUTPUT"
-
-    - name: Validate smoke.yaml
-      shell: bash
-      env:
-        PACKAGE: ${{ steps.resolve.outputs.package }}
-        FIXTURE_SRC: ${{ steps.resolve.outputs.fixture-dir }}
-        SMOKE_FILE: ${{ steps.resolve.outputs.smoke-file }}
-        TEMP_DIR: ${{ steps.resolve.outputs.temp-dir }}
-        ACTION_PATH: ${{ steps.resolve.outputs.action-path }}
-      run: |
-        # Sublime Text's Python can't read YAML, so convert it to JSON here.
-        venv="$TEMP_DIR/lsp-smoke-venv"
-        if [ "$RUNNER_OS" = Windows ]; then
-          python -m venv "$venv"
-          venv_python="$venv/Scripts/python.exe"
-        else
-          python3 -m venv "$venv"
-          venv_python="$venv/bin/python"
-        fi
-        "$venv_python" -m pip install --quiet --disable-pip-version-check pyyaml==6.0.3
-        # Copy the fixture out of the package checkout, so that the server doesn't find the package's own configuration
-        # files (pyproject.toml, .editorconfig, ...) above it.
-        fixture="$TEMP_DIR/lsp-smoke-fixture"
-        rm -rf "$fixture"
-        cp -R "$FIXTURE_SRC" "$fixture"
-        "$venv_python" -B "$ACTION_PATH/scripts/write_config.py" \
-          "$PACKAGE" "$SMOKE_FILE" "$fixture" "$TEMP_DIR/lsp-smoke-config.json"
+        import os, runpy
+        runpy.run_path(os.path.join(os.environ['GITHUB_ACTION_PATH'], 'scripts', 'prepare.py'), run_name='__main__')
 
     - name: Set up Sublime Text
       uses: SublimeText/UnitTesting/actions/setup@v1
       with:
         sublime-text-version: 4
-        package-name: ${{ steps.resolve.outputs.package }}
+        package-name: ${{ steps.prepare.outputs.package }}
         package-path: ${{ inputs.package-path }}
         extra-packages: |
-          sublimelsp/LSP@${{ steps.resolve.outputs.lsp-ref }}
+          sublimelsp/LSP@${{ steps.prepare.outputs.lsp-ref }}
 
     - name: Install smoke test harness
-      shell: bash
-      env:
-        TEMP_DIR: ${{ steps.resolve.outputs.temp-dir }}
-        ACTION_PATH: ${{ steps.resolve.outputs.action-path }}
+      shell: python
       run: |
-        harness="$SUBLIME_TEXT_PACKAGES/LSPSmokeTest"
-        mkdir -p "$harness"
-        cp -R "$ACTION_PATH/harness/." "$harness"
-        cp "$TEMP_DIR/lsp-smoke-config.json" "$harness/smoke_config.json"
-        # Keep server messages in the log so the test can print them when it fails.
-        mkdir -p "$SUBLIME_TEXT_PACKAGES/User"
-        settings="$SUBLIME_TEXT_PACKAGES/User/LSP.sublime-settings"
-        if [ ! -f "$settings" ]; then
-          echo '{"log_debug": true, "log_server": ["panel"]}' > "$settings"
-        fi
+        import os, runpy
+        runpy.run_path(os.path.join(os.environ['GITHUB_ACTION_PATH'], 'scripts', 'install_harness.py'), run_name='__main__')
 
     - name: Run smoke test
       uses: SublimeText/UnitTesting/actions/run-tests@v1
