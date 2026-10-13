@@ -65,7 +65,7 @@ such as an unknown key or a missing file fails the job right away.
 | `expected_diagnostics` | `min_count: 1` | The diagnostics to wait for, see below. |
 | `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
-| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. |
+| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. At most `240`: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report. |
 
 `expected_diagnostics` describes the diagnostics to wait for: at least `min_count` (default `1`) diagnostics matching
 all of the given keys:
