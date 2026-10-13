@@ -63,6 +63,7 @@ such as an unknown key or a missing file fails the job right away.
 | `file` | | The file to open, relative to the fixture directory. |
 | `server` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
 | `expected_diagnostics` | `min_count: 1` | The diagnostics to wait for, see below. |
+| `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
 | `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. |
 
@@ -89,6 +90,7 @@ All inputs are optional.
 | `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
 | `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`, or several, one per line. Each directory is a separate test, all run in the same Sublime Text session, so they need different names. |
 | `package-name` | Repository name | Name of the package under test. |
+| `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest `x.y.z` tag is used. |
 
 ## Servers that need a toolchain
 
@@ -115,7 +117,6 @@ The action takes the same inputs as the workflow, except `os`, plus:
 |---|---|---|
 | `install-package` | `true` | Whether to install the package checked out at `package-path`. `false` when there is no package under test. |
 | `package-path` | `.` | Where the package under test is checked out. |
-| `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest tag is used. |
 | `local-libraries` | | Libraries to replace with a local copy, one per line, as `name=path` to the library's directory. |
 
 ## Testing a library

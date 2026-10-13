@@ -14,7 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        package: [LSP-json, LSP-ruff, LSP-rust-analyzer]
+        package: [LSP-esphome, LSP-json, LSP-ruff, LSP-rust-analyzer]
+        include:
+          - package: LSP-esphome
+            extra-packages: SublimeText/ESPHome@4143-
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out action
@@ -34,6 +37,7 @@ jobs:
           package-path: package
           package-name: ${{ matrix.package }}
           fixture-dir: ${{ github.workspace }}/action/examples/${{ matrix.package }}
+          extra-packages: ${{ matrix.extra-packages }}
 
   # Tests a library instead of a package: the packages come from extra-packages, and lsp_utils is replaced with a
   # checkout of its default branch. Several fixtures run in one Sublime Text session, one of them with settings.

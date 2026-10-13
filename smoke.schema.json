@@ -22,6 +22,12 @@
       "default": {"min_count": 1},
       "allOf": [{"$ref": "#/definitions/diagnostics"}]
     },
+    "syntax": {
+      "description": "Scope of the syntax to assign to the file after opening it, for servers whose syntax isn't assigned automatically, for example by the file extension. The package providing the syntax can be installed with the extra-packages input.",
+      "type": "string",
+      "minLength": 1,
+      "examples": ["source.yaml.esphome"]
+    },
     "settings": {
       "description": "Settings to apply while this test runs, by settings file name. They are restored afterwards.",
       "type": "object",

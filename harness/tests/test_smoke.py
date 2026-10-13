@@ -91,6 +91,12 @@ class SmokeTest(DeferrableTestCase):
         self.window.set_project_data({'folders': [{'path': self.config['fixture_dir']}]})
         self.view = self.window.open_file(self.config['file_path'])
         yield {'condition': lambda: not self.view.is_loading(), 'timeout': VIEW_LOAD_TIMEOUT_MS}
+        if scope := self.config.get('syntax'):
+            # For servers whose syntax isn't assigned to the file automatically, for example by its extension.
+            syntaxes = sublime.find_syntax_by_scope(scope)
+            if not syntaxes:
+                self.fail(f'No syntax with the scope "{scope}" found. Install the package that provides it.')
+            self.view.assign_syntax(syntaxes[0])
 
     def tearDown(self) -> Generator[Any, None, None]:
         session = self.find_session()

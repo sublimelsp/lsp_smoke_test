@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../smoke.schema.json
+file: device.yaml
+# ESPHome files are plain .yaml files, so the syntax from the ESPHome package has to be assigned explicitly.
+syntax: source.yaml.esphome
+# The server's diagnostics have no source or code, only a message.
+expected_diagnostics:
+  message: cannot parse not-a-number as an integer
+# The first start installs ESPHome and its dependencies.
+diagnostics_timeout: 300
