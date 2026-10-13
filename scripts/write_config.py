@@ -19,6 +19,7 @@ import yaml
 SCHEMA = json.loads((Path(__file__).parent.parent / 'smoke.schema.json').read_text(encoding='utf-8'))
 SMOKE_KEYS = set(SCHEMA['properties'])
 EXPECTED_KEYS = set(SCHEMA['definitions']['diagnostics']['properties'])
+TIMEOUT_SCHEMA = SCHEMA['properties']['diagnostics_timeout']
 SETTINGS_SUFFIX = '.sublime-settings'
 
 
@@ -32,6 +33,15 @@ def find_smoke_file(fixture_dir: Path) -> Path:
         if (path := fixture_dir / name).is_file():
             return path
     error(f'smoke.yaml not found in {fixture_dir}')
+
+
+def check_timeout(smoke_file: Path, timeout: Any) -> None:
+    low, high = TIMEOUT_SCHEMA['exclusiveMinimum'], TIMEOUT_SCHEMA['maximum']
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not low < timeout <= high:
+        error(
+            f'{smoke_file}: "diagnostics_timeout" must be a number greater than {low} and at most {high}, '
+            'because UnitTesting stops the run after 300 seconds without test output'
+        )
 
 
 def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
@@ -57,6 +67,8 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         name.endswith(SETTINGS_SUFFIX) and isinstance(values, dict) for name, values in settings.items()
     ):
         error(f'{smoke_file}: "settings" must map *{SETTINGS_SUFFIX} file names to mappings')
+    if 'diagnostics_timeout' in smoke:
+        check_timeout(smoke_file, smoke['diagnostics_timeout'])
     smoke['expected_diagnostics'] = expected
     smoke['settings'] = settings
     smoke.setdefault('server', package)

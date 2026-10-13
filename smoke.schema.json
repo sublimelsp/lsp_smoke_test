@@ -36,9 +36,10 @@
       "examples": [{"lsp_utils.sublime-settings": {"nodejs_runtime": ["system"]}}]
     },
     "diagnostics_timeout": {
-      "description": "Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it.",
+      "description": "Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. At most 240: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report.",
       "type": "number",
       "exclusiveMinimum": 0,
+      "maximum": 240,
       "default": 180
     }
   },
