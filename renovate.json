@@ -1,13 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
-  ],
-  "packageRules": [
-    {
-      "description": "The harness has to run in the same Sublime Text plugin host as LSP, so its Python version is updated manually.",
-      "matchFileNames": ["harness/.python-version"],
-      "enabled": false
-    }
+    "github>sublimelsp/renovate-preset"
   ]
 }
