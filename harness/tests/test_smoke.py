@@ -28,9 +28,7 @@ PACKAGE_DIR = Path(__file__).parent.parent
 # Also covers starting the server, which can include downloading or installing it.
 DEFAULT_DIAGNOSTICS_TIMEOUT_S = 180
 VIEW_LOAD_TIMEOUT_MS = 10_000
-# Some servers take a while to shut down, for example flow on Windows. Together with the maximum diagnostics_timeout and
-# VIEW_LOAD_TIMEOUT_MS, this stays below UnitTesting's limit of 300 seconds without test output.
-SESSION_END_TIMEOUT_MS = 30_000
+SESSION_END_TIMEOUT_MS = 10_000
 LOG_LINES = 200
 SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 # LSP logs protocol messages under this name instead of a server name.
