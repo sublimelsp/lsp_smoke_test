@@ -109,7 +109,8 @@ class SmokeTest(DeferrableTestCase):
                     yield {'condition': lambda: self.find_session() is None, 'timeout': SESSION_END_TIMEOUT_MS}
                 except TimeoutError:
                     seconds = SESSION_END_TIMEOUT_MS // 1000
-                    self.fail(f'Server "{self.config["server"]}" did not shut down within {seconds} seconds.')
+                    reason = f'Server "{self.config["server"]}" did not shut down within {seconds} seconds.'
+                    self.fail(self.failure_report(reason))
         finally:
             if self.view.is_valid():
                 self.view.set_scratch(True)
