@@ -28,7 +28,9 @@ PACKAGE_DIR = Path(__file__).parent.parent
 # Also covers starting the server, which can include downloading or installing it.
 DEFAULT_DIAGNOSTICS_TIMEOUT_S = 180
 VIEW_LOAD_TIMEOUT_MS = 10_000
-SESSION_END_TIMEOUT_MS = 10_000
+# Some servers take a while to shut down, for example flow on Windows. Together with the maximum diagnostics_timeout and
+# VIEW_LOAD_TIMEOUT_MS, this stays below UnitTesting's limit of 300 seconds without test output.
+SESSION_END_TIMEOUT_MS = 30_000
 LOG_LINES = 200
 SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 # LSP logs protocol messages under this name instead of a server name.
@@ -99,14 +101,20 @@ class SmokeTest(DeferrableTestCase):
             self.view.assign_syntax(syntaxes[0])
 
     def tearDown(self) -> Generator[Any, None, None]:
-        session = self.find_session()
-        if session:
-            sublime.set_timeout_async(session.end_async)
-            yield {'condition': lambda: self.find_session() is None, 'timeout': SESSION_END_TIMEOUT_MS}
-        if self.view.is_valid():
-            self.view.set_scratch(True)
-            self.view.close()
-        self.window.set_project_data(self.previous_project_data or {})
+        try:
+            session = self.find_session()
+            if session:
+                sublime.set_timeout_async(session.end_async)
+                try:
+                    yield {'condition': lambda: self.find_session() is None, 'timeout': SESSION_END_TIMEOUT_MS}
+                except TimeoutError:
+                    seconds = SESSION_END_TIMEOUT_MS // 1000
+                    self.fail(f'Server "{self.config["server"]}" did not shut down within {seconds} seconds.')
+        finally:
+            if self.view.is_valid():
+                self.view.set_scratch(True)
+                self.view.close()
+            self.window.set_project_data(self.previous_project_data or {})
 
     def apply_settings(self) -> None:
         # Settings have to be in place before the file is opened, since that starts the server. Cleanups run even when
