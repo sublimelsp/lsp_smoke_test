@@ -28,6 +28,10 @@ def error(message: str) -> NoReturn:
     sys.exit(1)
 
 
+def warning(message: str) -> None:
+    print(f'::warning::{message}')
+
+
 def find_smoke_file(fixture_dir: Path) -> Path:
     for name in ('smoke.yaml', 'smoke.yml'):
         if (path := fixture_dir / name).is_file():
@@ -44,6 +48,16 @@ def check_timeout(smoke_file: Path, timeout: Any) -> None:
         )
 
 
+def rename_deprecated_server(smoke_file: Path, smoke: dict[str, Any]) -> None:
+    """Accept "server", the old name of "session_name"."""
+    if 'server' not in smoke:
+        return
+    if 'session_name' in smoke:
+        error(f'{smoke_file}: "server" is the deprecated name of "session_name", set only "session_name"')
+    warning(f'{smoke_file}: "server" is deprecated, rename it to "session_name"')
+    smoke['session_name'] = smoke.pop('server')
+
+
 def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
     smoke_file = find_smoke_file(fixture_dir)
     smoke = yaml.safe_load(smoke_file.read_text(encoding='utf-8'))
@@ -55,8 +69,9 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         error(f'{smoke_file}: "file" is required')
     if not (fixture_dir / smoke['file']).is_file():
         error(f'{smoke_file}: file "{smoke["file"]}" not found in the fixture directory')
-    if 'server' not in smoke and not package:
-        error(f'{smoke_file}: "server" is required when there is no package under test')
+    rename_deprecated_server(smoke_file, smoke)
+    if 'session_name' not in smoke and not package:
+        error(f'{smoke_file}: "session_name" is required when there is no package under test')
     expected = smoke.get('expected_diagnostics', {'min_count': 1})
     if not isinstance(expected, dict):
         error(f'{smoke_file}: "expected_diagnostics" must be a mapping')
@@ -71,7 +86,7 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         check_timeout(smoke_file, smoke['diagnostics_timeout'])
     smoke['expected_diagnostics'] = expected
     smoke['settings'] = settings
-    smoke.setdefault('server', package)
+    smoke.setdefault('session_name', package)
     return smoke
 
 

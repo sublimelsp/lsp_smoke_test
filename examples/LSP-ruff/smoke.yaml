@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../smoke.schema.json
 file: sample.py
-server: LSP-ruff
+session_name: LSP-ruff
 expected_diagnostics:
   source: Ruff
   code: F401

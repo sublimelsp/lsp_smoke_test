@@ -154,7 +154,7 @@ class SmokeTest(DeferrableTestCase):
         wm = windows.lookup(self.window)
         if not wm:
             return None
-        return wm.get_session(self.config['server'], self.config['file_path'])
+        return wm.get_session(self.config['session_name'], self.config['file_path'])
 
     def diagnostics(self) -> list[Diagnostic]:
         # Check what the server reported rather than what LSP draws in the view, since the package is under test.
@@ -194,7 +194,7 @@ class SmokeTest(DeferrableTestCase):
                     f'within {timeout} seconds, got {len(matching())}.'
                 )
             else:
-                reason = f'Server "{self.config["server"]}" did not start within {timeout} seconds.'
+                reason = f'Session "{self.config["session_name"]}" did not start within {timeout} seconds.'
             self.fail(self.failure_report(reason))
 
 

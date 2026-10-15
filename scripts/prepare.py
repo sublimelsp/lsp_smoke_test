@@ -48,7 +48,7 @@ def main() -> None:
     temp_dir = Path(env['RUNNER_TEMP'])
     package_path = env['INPUT_PACKAGE_PATH']
     install_package = env['INPUT_INSTALL_PACKAGE'] == 'true'
-    # Without a package under test, every smoke.yaml has to name its server.
+    # Without a package under test, every smoke.yaml has to name its session.
     package = env['INPUT_PACKAGE_NAME'] or (env['GITHUB_REPOSITORY'].split('/', 1)[1] if install_package else '')
     lsp_ref = env['INPUT_LSP_REF'] or latest_lsp_release(env['INPUT_GITHUB_TOKEN'])
     # An absolute fixture-dir is used as is, since joining an absolute path replaces the base.
