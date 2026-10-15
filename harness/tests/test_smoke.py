@@ -100,19 +100,20 @@ class SmokeTest(DeferrableTestCase):
 
     def tearDown(self) -> Generator[Any, None, None]:
         try:
-            session = self.find_session()
-            if session:
-                sublime.set_timeout_async(session.end_async)
-                try:
-                    yield {'condition': lambda: self.find_session() is None, 'timeout': SESSION_END_TIMEOUT_MS}
-                except TimeoutError:
-                    seconds = SESSION_END_TIMEOUT_MS // 1000
-                    reason = f'Server "{self.config["server"]}" did not shut down within {seconds} seconds.'
-                    self.fail(self.failure_report(reason))
-        finally:
+            # Close the view first, since LSP starts the servers again for an open view when their sessions end.
             if self.view.is_valid():
                 self.view.set_scratch(True)
                 self.view.close()
+            # End every session in the window, not only the one under test. A session that is left running, for example
+            # one of another server that was still starting, can affect the next test: when it exits, LSP removes the
+            # session view of a newer session with the same name from the views.
+            try:
+                yield {'condition': self.end_all_sessions, 'timeout': SESSION_END_TIMEOUT_MS}
+            except TimeoutError:
+                seconds = SESSION_END_TIMEOUT_MS // 1000
+                reason = f'Servers did not shut down within {seconds} seconds.'
+                self.fail(self.failure_report(reason))
+        finally:
             self.window.set_project_data(self.previous_project_data or {})
 
     def apply_settings(self) -> None:
@@ -136,6 +137,18 @@ class SmokeTest(DeferrableTestCase):
                 else:
                     settings.erase(key)
             sublime.save_settings(name)
+
+    def end_all_sessions(self) -> bool:
+        """End the sessions in the window and return whether all of them have ended."""
+        wm = windows.lookup(self.window)
+        if not wm:
+            return True
+        sessions = list(wm.get_sessions())
+        for session in sessions:
+            if not session.exiting:
+                sublime.set_timeout_async(session.end_async)
+        # A session that is still starting isn't in the window's sessions yet. It's ended once it has started.
+        return not sessions and getattr(wm, '_new_session', None) is None
 
     def find_session(self) -> Session | None:
         wm = windows.lookup(self.window)
