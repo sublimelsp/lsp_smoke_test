@@ -61,7 +61,7 @@ such as an unknown key or a missing file fails the job right away.
 | Key | Default | Description |
 |---|---|---|
 | `file` | | The file to open, relative to the fixture directory. |
-| `session_name` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. It was called `server` before, which still works but is deprecated. |
+| `session_name` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
 | `expected_diagnostics` | `min_count: 1` | The diagnostics to wait for, see below. |
 | `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
