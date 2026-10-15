@@ -100,6 +100,10 @@ class SmokeTest(DeferrableTestCase):
 
     def tearDown(self) -> Generator[Any, None, None]:
         try:
+            # Close the view first, since LSP starts the servers again for an open view when their sessions end.
+            if self.view.is_valid():
+                self.view.set_scratch(True)
+                self.view.close()
             # End every session in the window, not only the one under test. A session that is left running, for example
             # one of another server that was still starting, can affect the next test: when it exits, LSP removes the
             # session view of a newer session with the same name from the views.
@@ -110,9 +114,6 @@ class SmokeTest(DeferrableTestCase):
                 reason = f'Servers did not shut down within {seconds} seconds.'
                 self.fail(self.failure_report(reason))
         finally:
-            if self.view.is_valid():
-                self.view.set_scratch(True)
-                self.view.close()
             self.window.set_project_data(self.previous_project_data or {})
 
     def apply_settings(self) -> None:
