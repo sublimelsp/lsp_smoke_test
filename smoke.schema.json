@@ -6,7 +6,6 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["file"],
-  "not": {"required": ["session_name", "server"]},
   "properties": {
     "file": {
       "description": "The file to open, relative to the fixture directory.",
@@ -15,12 +14,6 @@
     },
     "session_name": {
       "description": "Name of the LSP session. Defaults to the package name. Only needed for plugins whose name differs from the package name.",
-      "type": "string",
-      "minLength": 1
-    },
-    "server": {
-      "description": "Deprecated, use session_name instead.",
-      "deprecationMessage": "Deprecated, use session_name instead.",
       "type": "string",
       "minLength": 1
     },
