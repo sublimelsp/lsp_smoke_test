@@ -44,6 +44,8 @@ LOG_LINES = 200
 SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 # LSP logs protocol messages under this name instead of a server name.
 PROTOCOL_LOG_NAME = ':'
+# The smoke.yaml key that each test checks. A test is skipped when its key isn't set.
+TEST_KEYS = {'test_diagnostics': 'expected_diagnostics', 'test_hover': 'expected_hover'}
 
 
 def load_configs() -> list[dict[str, Any]]:
@@ -110,6 +112,10 @@ class SmokeTest(DeferrableTestCase):
     config: ClassVar[dict[str, Any]]
 
     def setUp(self) -> Generator[Any, None, None]:
+        # Skip before opening the file, which starts the server, so that a skipped test doesn't leave a server starting.
+        key = TEST_KEYS[self._testMethodName]
+        if self.config.get(key) is None:
+            self.skipTest(f'No {key} configured.')
         self.apply_settings()
         self.window = sublime.active_window()
         self.previous_project_data = self.window.project_data()
@@ -131,6 +137,13 @@ class SmokeTest(DeferrableTestCase):
             if self.view.is_valid():
                 self.view.set_scratch(True)
                 self.view.close()
+            # A session can only be ended once it has started, which can take long, for example when the server is
+            # installed first, so wait for that before giving the sessions the shorter time to shut down.
+            timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
+            try:
+                yield {'condition': lambda: not self.session_starting(), 'timeout': timeout * 1000}
+            except TimeoutError:
+                self.fail(self.failure_report(f'Servers did not finish starting within {timeout} seconds.'))
             # End every session in the window, not only the one under test. A session that is left running, for example
             # one of another server that was still starting, can affect the next test: when it exits, LSP removes the
             # session view of a newer session with the same name from the views.
@@ -174,8 +187,12 @@ class SmokeTest(DeferrableTestCase):
         for session in sessions:
             if not session.exiting:
                 sublime.set_timeout_async(session.end_async)
-        # A session that is still starting isn't in the window's sessions yet. It's ended once it has started.
-        return not sessions and getattr(wm, '_new_session', None) is None
+        return not sessions and not self.session_starting()
+
+    def session_starting(self) -> bool:
+        # A session that is still starting isn't in the window's sessions yet.
+        wm = windows.lookup(self.window)
+        return wm is not None and getattr(wm, '_new_session', None) is not None
 
     def find_session(self) -> Session | None:
         wm = windows.lookup(self.window)
@@ -205,9 +222,7 @@ class SmokeTest(DeferrableTestCase):
         return '\n'.join(lines)
 
     def test_diagnostics(self) -> Generator[Any, None, None]:
-        expected = self.config.get('expected_diagnostics')
-        if expected is None:
-            self.skipTest('No expected_diagnostics configured.')
+        expected = self.config['expected_diagnostics']
         min_count = expected.get('min_count', 1)
         timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
 
@@ -227,9 +242,7 @@ class SmokeTest(DeferrableTestCase):
             self.fail(self.failure_report(reason))
 
     def test_hover(self) -> Generator[Any, None, None]:
-        expected = self.config.get('expected_hover')
-        if expected is None:
-            self.skipTest('No expected_hover configured.')
+        expected = self.config['expected_hover']
         region = self.view.find(expected['at'], 0, sublime.LITERAL)
         if region.a < 0:
             self.fail(f'Text "{expected["at"]}" not found in {self.config["file"]}.')
