@@ -18,9 +18,13 @@
       "minLength": 1
     },
     "expected_diagnostics": {
-      "description": "The diagnostics the server is expected to report.",
+      "description": "The diagnostics the server is expected to report. Defaults to `min_count: 1` when `expected_hover` isn't given, otherwise diagnostics aren't checked.",
       "default": {"min_count": 1},
       "allOf": [{"$ref": "#/definitions/diagnostics"}]
+    },
+    "expected_hover": {
+      "description": "The hover the server is expected to return. Checked in a separate test, which starts the server again.",
+      "allOf": [{"$ref": "#/definitions/hover"}]
     },
     "syntax": {
       "description": "Scope of the syntax to assign to the file after opening it, for servers whose syntax isn't assigned automatically, for example by the file extension. The package providing the syntax can be installed with the extra-packages input.",
@@ -36,11 +40,18 @@
       "examples": [{"lsp_utils.sublime-settings": {"nodejs_runtime": ["system"]}}]
     },
     "diagnostics_timeout": {
-      "description": "Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. At most 240: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report.",
+      "description": "Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover, including starting the server, which can include downloading or installing it. At most 240: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report.",
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 240,
       "default": 180
+    },
+    "hover_timeout": {
+      "description": "Seconds to wait for the expected hover after the server has started. Starting the server is limited by `diagnostics_timeout`. At most 50, so that both together stay within the 300 seconds after which UnitTesting stops the run.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 50,
+      "default": 10
     }
   },
   "definitions": {
@@ -70,6 +81,25 @@
         },
         "message": {
           "description": "A regular expression that the diagnostic's `message` must match.",
+          "type": "string",
+          "format": "regex"
+        }
+      }
+    },
+    "hover": {
+      "description": "Request a hover at `at` until its contents match `match`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at"],
+      "properties": {
+        "at": {
+          "description": "Text in the file to hover over. The hover is requested at the first character of its first occurrence.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["SUMMARY"]
+        },
+        "match": {
+          "description": "A regular expression that the hover's contents must match. The contents are converted to a string first: the `value` of a `MarkupContent` or `MarkedString`, or the values of a list of `MarkedString`s joined with newlines. Markdown isn't rendered, so match its source. By default, any hover with non-empty contents matches.",
           "type": "string",
           "format": "regex"
         }

@@ -4,3 +4,6 @@ session_name: LSP-pyright
 expected_diagnostics:
   source: Pyright
   code: reportAssignmentType
+expected_hover:
+  at: foo
+  match: '\(variable\) foo: str'
