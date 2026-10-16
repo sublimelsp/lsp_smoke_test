@@ -1,7 +1,7 @@
 name: LSP smoke test
 description: >-
   Install LSP packages in Sublime Text, open sample files and check that their language servers report the expected
-  diagnostics.
+  diagnostics or return the expected hover.
 
 inputs:
   install-package:

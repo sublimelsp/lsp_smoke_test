@@ -8,6 +8,8 @@ together with the paths of copies of the fixture directories. This module create
 from __future__ import annotations
 
 from LSP.plugin import filename_to_uri
+from LSP.plugin import Request
+from LSP.plugin import text_document_position_params
 from LSP.plugin.core.registry import windows
 from pathlib import Path
 from typing import Any
@@ -19,14 +21,23 @@ import itertools
 import json
 import re
 import sublime
+import time
 
 if TYPE_CHECKING:
     from LSP.plugin import Session
     from LSP.protocol import Diagnostic
+    from LSP.protocol import Hover
+    from LSP.protocol import MarkedString
+    from LSP.protocol import MarkupContent
 
 PACKAGE_DIR = Path(__file__).parent.parent
 # Also covers starting the server, which can include downloading or installing it.
 DEFAULT_DIAGNOSTICS_TIMEOUT_S = 180
+# After the server has started.
+DEFAULT_HOVER_TIMEOUT_S = 10
+# Servers can return no hover while they are still processing the file, so the request is repeated.
+HOVER_RETRY_INTERVAL_S = 1
+HOVER_REPORT_CHARS = 500
 VIEW_LOAD_TIMEOUT_MS = 10_000
 SESSION_END_TIMEOUT_MS = 10_000
 LOG_LINES = 200
@@ -61,6 +72,22 @@ def diagnostic_matches(diagnostic: Diagnostic, expected: dict[str, Any]) -> bool
         if not re.search(expected['message'], text):
             return False
     return True
+
+
+def hover_text(contents: MarkupContent | MarkedString | list[MarkedString]) -> str:
+    if isinstance(contents, list):
+        return '\n'.join(map(hover_text, contents))
+    # A MarkupContent or a MarkedString with a language.
+    return contents if isinstance(contents, str) else contents['value']
+
+
+def hover_matches(hover: Hover | None, expected: dict[str, Any]) -> bool:
+    if not hover:
+        return False
+    text = hover_text(hover['contents'])
+    if 'match' in expected:
+        return re.search(expected['match'], text) is not None
+    return bool(text.strip())
 
 
 def format_diagnostic(diagnostic: Diagnostic) -> str:
@@ -177,8 +204,10 @@ class SmokeTest(DeferrableTestCase):
             lines.extend(itertools.starmap(format_log_line, log))
         return '\n'.join(lines)
 
-    def test_server(self) -> Generator[Any, None, None]:
-        expected = self.config['expected_diagnostics']
+    def test_diagnostics(self) -> Generator[Any, None, None]:
+        expected = self.config.get('expected_diagnostics')
+        if expected is None:
+            self.skipTest('No expected_diagnostics configured.')
         min_count = expected.get('min_count', 1)
         timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
 
@@ -196,6 +225,74 @@ class SmokeTest(DeferrableTestCase):
             else:
                 reason = f'Session "{self.config["session_name"]}" did not start within {timeout} seconds.'
             self.fail(self.failure_report(reason))
+
+    def test_hover(self) -> Generator[Any, None, None]:
+        expected = self.config.get('expected_hover')
+        if expected is None:
+            self.skipTest('No expected_hover configured.')
+        region = self.view.find(expected['at'], 0, sublime.LITERAL)
+        if region.a < 0:
+            self.fail(f'Text "{expected["at"]}" not found in {self.config["file"]}.')
+        point = region.a
+        startup_timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
+        timeout = self.config.get('hover_timeout', DEFAULT_HOVER_TIMEOUT_S)
+        # Set from the worker thread, where LSP has to be called.
+        self.session_ready = False
+        self.hover_pending = False
+        self.hover_sent_at = 0.0
+        self.hover_response: str | None = None
+        self.hover_matched = False
+
+        def poll() -> bool:
+            if self.hover_matched:
+                return True
+            if not self.hover_pending and time.monotonic() - self.hover_sent_at >= HOVER_RETRY_INTERVAL_S:
+                self.hover_pending = True
+                self.hover_sent_at = time.monotonic()
+                sublime.set_timeout_async(lambda: self.request_hover_async(point, expected))
+            return False
+
+        try:
+            yield {'condition': lambda: poll() or self.session_ready, 'timeout': startup_timeout * 1000}
+        except TimeoutError:
+            reason = f'Session "{self.config["session_name"]}" did not start within {startup_timeout} seconds.'
+            self.fail(self.failure_report(reason))
+        try:
+            yield {'condition': poll, 'timeout': timeout * 1000}
+        except TimeoutError:
+            row, col = self.view.rowcol(point)
+            response = self.hover_response or 'none'
+            if len(response) > HOVER_REPORT_CHARS:
+                response = response[:HOVER_REPORT_CHARS] + '...'
+            reason = (
+                f'Expected a hover matching {json.dumps(expected)} at {row + 1}:{col + 1} '
+                f'within {timeout} seconds after the server started. Last response: {response}'
+            )
+            self.fail(self.failure_report(reason))
+
+    def request_hover_async(self, point: int, expected: dict[str, Any]) -> None:
+        session = self.find_session()
+        # The view is attached once LSP has sent the server the didOpen notification.
+        if not session or not session.session_view_for_view_async(self.view):
+            self.hover_pending = False
+            return
+        self.session_ready = True
+        if not session.has_capability('hoverProvider'):
+            self.hover_response = 'the server does not have the hoverProvider capability'
+            self.hover_pending = False
+            return
+
+        def on_result(hover: Hover | None) -> None:
+            self.hover_response = json.dumps(hover)
+            self.hover_matched = hover_matches(hover, expected)
+            self.hover_pending = False
+
+        def on_error(error: Any) -> None:
+            self.hover_response = f'error: {error["message"]}'
+            self.hover_pending = False
+
+        params = text_document_position_params(self.view, point)
+        session.send_request_async(Request('textDocument/hover', params, self.view), on_result, on_error)
 
 
 # Create a test case for each fixture. The base class is removed from the module, so that it isn't run on its own.

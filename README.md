@@ -2,7 +2,7 @@
 
 A GitHub Actions workflow that checks that an LSP package for Sublime Text works: it installs the package in Sublime
 Text together with [LSP](https://github.com/sublimelsp/LSP), opens a sample file, waits for the language server to
-start and checks that it reports the expected diagnostics.
+start and checks that it reports the expected diagnostics or returns the expected hover.
 
 ## Usage
 
@@ -62,10 +62,12 @@ such as an unknown key or a missing file fails the job right away.
 |---|---|---|
 | `file` | | The file to open, relative to the fixture directory. |
 | `session_name` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
-| `expected_diagnostics` | `min_count: 1` | The diagnostics to wait for, see below. |
+| `expected_diagnostics` | `min_count: 1`, or none with `expected_hover` | The diagnostics to wait for, see below. |
+| `expected_hover` | | The hover to wait for, see below. |
 | `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
-| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, including starting the server, which can include downloading or installing it. At most `240`: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report. |
+| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover, including starting the server, which can include downloading or installing it. At most `240`: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report. |
+| `hover_timeout` | `10` | Seconds to wait for the expected hover after the server has started. At most `50`. |
 
 `expected_diagnostics` describes the diagnostics to wait for: at least `min_count` (default `1`) diagnostics matching
 all of the given keys:
@@ -77,7 +79,26 @@ all of the given keys:
 | `severity` | The diagnostic's `severity` number (1 = error, 2 = warning, 3 = information, 4 = hint). |
 | `message` | The diagnostic's `message`, as a regular expression. |
 
-When the test fails, it prints the sessions running in the window, the diagnostics received and the last lines of the
+`expected_hover` describes a hover to request, for servers that don't report diagnostics for a small sample file. The
+hover is requested again every second until the response matches or `hover_timeout` runs out, since servers can return
+no hover while they are still processing the file.
+
+| Key | Description |
+|---|---|
+| `at` | Text in the file to hover over, required. The hover is requested at the first character of its first occurrence. |
+| `match` | A regular expression that the hover's contents must match. The contents are converted to a string first: the `value` of a `MarkupContent` or `MarkedString`, or the values of a list of `MarkedString`s joined with newlines. Markdown isn't rendered, so match its source, for example `\*\*SUMMARY\*\*`. By default, any non-empty hover matches. |
+
+```yaml
+file: sample.py
+expected_hover:
+  at: foo
+  match: '\(variable\) foo: str'
+```
+
+Diagnostics and hover are checked in separate tests, so with both, the server is started twice. Without
+`expected_diagnostics`, diagnostics are only checked when there is no `expected_hover`.
+
+When a test fails, it prints the sessions running in the window, the diagnostics received and the last lines of the
 server log.
 
 ## Workflow inputs
