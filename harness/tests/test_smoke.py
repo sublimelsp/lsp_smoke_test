@@ -192,7 +192,17 @@ class SmokeTest(DeferrableTestCase):
     def session_starting(self) -> bool:
         # A session that is still starting isn't in the window's sessions yet.
         wm = windows.lookup(self.window)
-        return wm is not None and getattr(wm, '_new_session', None) is not None
+        if wm is None:
+            return False
+        if is_session_starting := getattr(wm, 'is_session_starting', None):
+            return is_session_starting()
+        # LSP releases before is_session_starting() was added. While sessions are started for a view, its listener is
+        # set and other views wait in the queue.
+        if (pending_listeners := getattr(wm, '_pending_listeners', None)) is not None:
+            return getattr(wm, '_new_listener', None) is not None or bool(pending_listeners)
+        # The asyncio version of LSP starts sessions one at a time, with a lock.
+        start_lock = getattr(wm, '_start_lock', None)
+        return start_lock is not None and start_lock.locked()
 
     def find_session(self) -> Session | None:
         wm = windows.lookup(self.window)
