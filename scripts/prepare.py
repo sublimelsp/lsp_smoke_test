@@ -74,13 +74,16 @@ def main() -> None:
     venv_dir = temp_dir / 'lsp-smoke-venv'
     venv.create(venv_dir, with_pip=True, clear=True)
     python = str(venv_python(venv_dir))
+    # Run Python outside the package checkout, since `python -m` puts the working directory on the module path, where a
+    # module of the package such as types.py would shadow the standard library module of the same name.
     subprocess.run(
         [python, '-m', 'pip', 'install', '--quiet', '--disable-pip-version-check', f'pyyaml=={PYYAML_VERSION}'],
         check=True,
+        cwd=temp_dir,
     )
     config = str(temp_dir / 'lsp-smoke-config.json')
     result = subprocess.run(
-        [python, '-B', str(SCRIPTS_DIR / 'write_config.py'), package, config, *fixtures], check=False
+        [python, '-B', str(SCRIPTS_DIR / 'write_config.py'), package, config, *fixtures], check=False, cwd=temp_dir
     )
     if result.returncode:
         sys.exit(result.returncode)
