@@ -62,7 +62,7 @@ such as an unknown key or a missing file fails the job right away.
 |---|---|---|
 | `file` | | The file to open, relative to the fixture directory. |
 | `session_name` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
-| `expected_diagnostics` | `min_count: 1`, or none with `expected_hover` | The diagnostics to wait for, see below. |
+| `expected_diagnostics` | | The diagnostics to wait for, see below. |
 | `expected_hover` | | The hover to wait for, see below. |
 | `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
@@ -70,7 +70,7 @@ such as an unknown key or a missing file fails the job right away.
 | `hover_timeout` | `10` | Seconds to wait for the expected hover after the server has started. At most `50`. |
 
 `expected_diagnostics` describes the diagnostics to wait for: at least `min_count` (default `1`) diagnostics matching
-all of the given keys:
+all of the given keys. `expected_diagnostics: {}` waits for any diagnostic.
 
 | Key | Matches |
 |---|---|
@@ -95,8 +95,8 @@ expected_hover:
   match: '\(variable\) foo: str'
 ```
 
-Diagnostics and hover are checked in separate tests, so with both, the server is started twice. Without
-`expected_diagnostics`, diagnostics are only checked when there is no `expected_hover`.
+Set `expected_diagnostics`, `expected_hover` or both. Only what is set is checked. Diagnostics and hover are checked
+in separate tests, so with both, the server is started twice.
 
 When a test fails, it prints the sessions running in the window, the diagnostics received and the last lines of the
 server log.

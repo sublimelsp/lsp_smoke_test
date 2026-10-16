@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["file"],
+  "anyOf": [{"required": ["expected_diagnostics"]}, {"required": ["expected_hover"]}],
   "properties": {
     "file": {
       "description": "The file to open, relative to the fixture directory.",
@@ -18,12 +19,11 @@
       "minLength": 1
     },
     "expected_diagnostics": {
-      "description": "The diagnostics the server is expected to report. Defaults to `min_count: 1` when `expected_hover` isn't given, otherwise diagnostics aren't checked.",
-      "default": {"min_count": 1},
+      "description": "The diagnostics the server is expected to report. Use `{}` for at least one diagnostic of any kind. Set this, `expected_hover` or both.",
       "allOf": [{"$ref": "#/definitions/diagnostics"}]
     },
     "expected_hover": {
-      "description": "The hover the server is expected to return. Checked in a separate test, which starts the server again.",
+      "description": "The hover the server is expected to return. Checked in a separate test that starts the server again. Set this, `expected_diagnostics` or both.",
       "allOf": [{"$ref": "#/definitions/hover"}]
     },
     "syntax": {

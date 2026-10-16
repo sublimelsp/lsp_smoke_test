@@ -97,13 +97,12 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         error(f'{smoke_file}: file "{smoke["file"]}" not found in the fixture directory')
     if 'session_name' not in smoke and not package:
         error(f'{smoke_file}: "session_name" is required when there is no package under test')
+    if 'expected_diagnostics' not in smoke and 'expected_hover' not in smoke:
+        error(f'{smoke_file}: set "expected_diagnostics", "expected_hover" or both')
     if 'expected_hover' in smoke:
         check_hover(smoke_file, fixture_dir / smoke['file'], smoke['expected_hover'])
-    # Without an expected hover, the diagnostics are the only check, so some are expected by default.
-    expected = smoke.get('expected_diagnostics', None if 'expected_hover' in smoke else {'min_count': 1})
-    if expected is not None:
-        check_diagnostics(smoke_file, expected)
-        smoke['expected_diagnostics'] = expected
+    if 'expected_diagnostics' in smoke:
+        check_diagnostics(smoke_file, smoke['expected_diagnostics'])
     settings = smoke.get('settings', {})
     if not isinstance(settings, dict) or not all(
         name.endswith(SETTINGS_SUFFIX) and isinstance(values, dict) for name, values in settings.items()
