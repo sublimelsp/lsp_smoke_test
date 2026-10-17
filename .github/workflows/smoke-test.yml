@@ -36,6 +36,9 @@ jobs:
       matrix:
         os: ${{ fromJSON(inputs.os) }}
     runs-on: ${{ matrix.os }}
+    env:
+      # Composite actions can't read configuration variables, so the action gets it from the environment.
+      LSP_SMOKE_TEST_LSP_REF: ${{ vars.LSP_SMOKE_TEST_LSP_REF }}
     steps:
       - name: Check out package
         uses: actions/checkout@v7
