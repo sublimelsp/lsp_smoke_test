@@ -50,7 +50,12 @@ def main() -> None:
     install_package = env['INPUT_INSTALL_PACKAGE'] == 'true'
     # Without a package under test, every smoke.yaml has to name its session.
     package = env['INPUT_PACKAGE_NAME'] or (env['GITHUB_REPOSITORY'].split('/', 1)[1] if install_package else '')
-    lsp_ref = env['INPUT_LSP_REF'] or latest_lsp_release(env['INPUT_GITHUB_TOKEN'])
+    lsp_ref = env['INPUT_LSP_REF']
+    if not lsp_ref:
+        if lsp_ref := env.get('LSP_SMOKE_TEST_LSP_REF', ''):
+            print(f'::notice::Testing against sublimelsp/LSP@{lsp_ref} from the LSP_SMOKE_TEST_LSP_REF variable.')
+        else:
+            lsp_ref = latest_lsp_release(env['INPUT_GITHUB_TOKEN'])
     # An absolute fixture-dir is used as is, since joining an absolute path replaces the base.
     lines = [line.strip() for line in env['INPUT_FIXTURE_DIR'].splitlines() if line.strip()]
     fixture_srcs = [Path(package_path, line).resolve() for line in lines]

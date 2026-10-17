@@ -31,7 +31,9 @@ inputs:
       name=path. The path is the library's directory, for example lsp_utils=lsp_utils/lsp_utils.
     default: ''
   lsp-ref:
-    description: Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
+    description: >-
+      Branch, tag or commit of sublimelsp/LSP to test against. If empty, the LSP_SMOKE_TEST_LSP_REF environment
+      variable is used, and the latest release if that isn't set either.
     default: ''
   github-token:
     description: Token used to look up the latest LSP release.

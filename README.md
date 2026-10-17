@@ -107,11 +107,26 @@ All inputs are optional.
 
 | Input | Default | Description |
 |---|---|---|
-| `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. |
+| `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. See [Testing against an LSP branch](#testing-against-an-lsp-branch). |
 | `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
 | `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`, or several, one per line. Each directory is a separate test, all run in the same Sublime Text session, so they need different names. |
 | `package-name` | Repository name | Name of the package under test. |
 | `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest `x.y.z` tag is used. |
+
+## Testing against an LSP branch
+
+To run every package's smoke test against an LSP branch without changing each workflow's `lsp-ref`, set the
+`LSP_SMOKE_TEST_LSP_REF` configuration variable, at the organization level or in a single repository, to a branch, tag
+or commit of LSP. Every run that doesn't set `lsp-ref` then uses it, including runs for pushes and pull requests, so
+delete the variable again when you're done. Runs that use it show a notice with the ref.
+
+The reusable workflow picks the variable up on its own. Composite actions can't read configuration variables, so a
+workflow that uses the action directly has to pass it in the environment:
+
+```yaml
+    env:
+      LSP_SMOKE_TEST_LSP_REF: ${{ vars.LSP_SMOKE_TEST_LSP_REF }}
+```
 
 ## Servers that need a toolchain
 
