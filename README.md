@@ -113,6 +113,13 @@ All inputs are optional.
 | `package-name` | Repository name | Name of the package under test. |
 | `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest `x.y.z` tag is used. |
 
+## Requiring the smoke test
+
+To block merging pull requests that fail the smoke test, for example ones that Renovate would otherwise automerge,
+require the `smoke / Smoke test result` check in a ruleset for the default branch. It fails if the test fails on any
+runner, so it doesn't change with the `os` input, unlike the `smoke / Smoke test (<os>)` checks. The `smoke /` prefix is
+the caller's job name.
+
 ## Testing against an LSP branch
 
 To run every package's smoke test against an LSP branch without changing each workflow's `lsp-ref`, set the
