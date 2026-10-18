@@ -23,6 +23,12 @@ import re
 import sublime
 import time
 
+# The asyncio version of LSP ends a session with a coroutine, which has to run on its event loop.
+try:
+    from LSP.plugin import run_coroutine  # pyright: ignore[reportAttributeAccessIssue]
+except ImportError:
+    run_coroutine = None
+
 if TYPE_CHECKING:
     from LSP.plugin import Session
     from LSP.protocol import Diagnostic
@@ -101,6 +107,13 @@ def format_diagnostic(diagnostic: Diagnostic) -> str:
         f'  {start["line"] + 1}:{start["character"] + 1} {severity} '
         f'source={diagnostic.get("source")!r} code={diagnostic.get("code")!r}: {text.splitlines()[0] if text else ""}'
     )
+
+
+def end_session(session: Session) -> None:
+    if run_coroutine:
+        run_coroutine(session.end())  # pyright: ignore[reportAttributeAccessIssue]
+    else:
+        sublime.set_timeout_async(session.end_async)
 
 
 def format_log_line(name: str, message: str) -> str:
@@ -186,7 +199,7 @@ class SmokeTest(DeferrableTestCase):
         sessions = list(wm.get_sessions())
         for session in sessions:
             if not session.exiting:
-                sublime.set_timeout_async(session.end_async)
+                end_session(session)
         return not sessions and not self.session_starting()
 
     def session_starting(self) -> bool:
