@@ -7,15 +7,12 @@ requires-python = ">=3.10"
 
 [dependency-groups]
 dev = [
-    "pyright==1.1.414",
-    "pyyaml==6.0.3",
-    "ruff==0.17.1",
-    "sublime-text-stubs==1.4200.1",
-    "types-pyyaml==6.0.12.20260906",
+  "pyright==1.1.414",
+  "pyyaml==6.0.3",
+  "ruff==0.17.1",
+  "sublime-text-stubs==4200.1",
+  "types-pyyaml==6.0.12.20260906",
 ]
-
-[tool.uv]
-package = false
 
 [tool.pyright]
 include = ["harness", "scripts"]
@@ -27,8 +24,8 @@ pythonVersion = "3.8"
 reportMissingModuleSource = "none"
 typeCheckingMode = "standard"
 executionEnvironments = [
-    # UnitTesting's deferred test cases use generators for setUp and tearDown.
-    { root = "harness/tests", reportIncompatibleMethodOverride = "none" },
+  # UnitTesting's deferred test cases use generators for setUp and tearDown.
+  { root = "harness/tests", reportIncompatibleMethodOverride = "none" },
 ]
 
 [tool.ruff]
@@ -47,32 +44,32 @@ preview = true
 select = ["ALL"]
 # Refer to https://docs.astral.sh/ruff/rules/
 ignore = [
-    "any-type",
-    "missing-copyright-notice",
-    "missing-trailing-comma",
-    "undocumented-public-module",
-    "undocumented-public-class",
-    "undocumented-public-method",
-    "undocumented-public-function",
-    "undocumented-public-package",
-    "docstring-missing-returns",
-    "docstring-missing-yields",
-    "incorrect-blank-line-before-class",
-    "multi-line-summary-first-line",
-    "no-self-use",
-    "bad-quotes-inline-string",
-    "pytest-unittest-assertion",
+  "any-type",
+  "missing-copyright-notice",
+  "missing-trailing-comma",
+  "undocumented-public-module",
+  "undocumented-public-class",
+  "undocumented-public-method",
+  "undocumented-public-function",
+  "undocumented-public-package",
+  "docstring-missing-returns",
+  "docstring-missing-yields",
+  "incorrect-blank-line-before-class",
+  "multi-line-summary-first-line",
+  "no-self-use",
+  "bad-quotes-inline-string",
+  "pytest-unittest-assertion",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # Command line scripts run by the action, not a package.
 "scripts/*" = [
-    "implicit-namespace-package",
-    "print",
-    # The scripts only run fixed commands and open a fixed https URL.
-    "suspicious-subprocess-import",
-    "subprocess-without-shell-equals-true",
-    "suspicious-url-open-usage",
+  "implicit-namespace-package",
+  "print",
+  # The scripts only run fixed commands and open a fixed https URL.
+  "suspicious-subprocess-import",
+  "subprocess-without-shell-equals-true",
+  "suspicious-url-open-usage",
 ]
 
 [tool.ruff.lint.isort]
@@ -82,3 +79,6 @@ from-first = true
 no-sections = true
 order-by-type = false
 required-imports = ["from __future__ import annotations"]
+
+[tool.uv]
+package = false
