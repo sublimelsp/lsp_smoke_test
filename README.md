@@ -152,7 +152,21 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v6
       - uses: sublimelsp/lsp_smoke_test@v1
+
+  # A single check whose name doesn't depend on the os matrix, for rulesets to require.
+  result:
+    name: Smoke test result
+    needs: smoke
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.smoke.result }}
+        run: test "$RESULT" = success
 ```
+
+The `result` job does what the workflow's does: require its `Smoke test result` check, without a prefix since it's not
+in a reusable workflow.
 
 The action takes the same inputs as the workflow, except `os`, plus:
 
