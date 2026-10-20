@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=../../smoke.schema.json
+file: sample.js
+expected_formatting:
+  result: formatted.js
