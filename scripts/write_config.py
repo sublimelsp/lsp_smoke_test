@@ -21,7 +21,9 @@ SCHEMA = json.loads((Path(__file__).parent.parent / 'smoke.schema.json').read_te
 SMOKE_KEYS = set(SCHEMA['properties'])
 EXPECTED_KEYS = set(SCHEMA['definitions']['diagnostics']['properties'])
 HOVER_SCHEMA = SCHEMA['definitions']['hover']
-TIMEOUT_KEYS = ('diagnostics_timeout', 'hover_timeout')
+FORMATTING_SCHEMA = SCHEMA['definitions']['formatting']
+EXPECTED_TEST_KEYS = ('expected_diagnostics', 'expected_hover', 'expected_formatting')
+TIMEOUT_KEYS = ('diagnostics_timeout', 'hover_timeout', 'formatting_timeout')
 SETTINGS_SUFFIX = '.sublime-settings'
 
 
@@ -68,6 +70,29 @@ def check_hover(smoke_file: Path, file: Path, hover: Any) -> None:
         check_regex(smoke_file, '"match" in "expected_hover"', hover['match'])
 
 
+def check_formatting(smoke_file: Path, file: Path, formatting: Any) -> None:
+    if not isinstance(formatting, dict):
+        error(f'{smoke_file}: "expected_formatting" must be a mapping')
+    if unknown := set(formatting) - set(FORMATTING_SCHEMA['properties']):
+        error(f'{smoke_file}: unknown keys in "expected_formatting" {sorted(unknown)}')
+    for key in FORMATTING_SCHEMA['required']:
+        if key not in formatting:
+            error(f'{smoke_file}: "{key}" is required in "expected_formatting"')
+    result_name = formatting['result']
+    if not isinstance(result_name, str) or not result_name:
+        error(f'{smoke_file}: "result" in "expected_formatting" must be a non-empty string')
+    result = file.parent / result_name
+    if not result.is_file():
+        error(f'{smoke_file}: file "{result_name}" of "expected_formatting" not found in the fixture directory')
+    # Otherwise the test would pass without the server formatting anything.
+    if read_normalized(result) == read_normalized(file):
+        error(f'{smoke_file}: "{file.name}" is already formatted like "{result_name}" of "expected_formatting"')
+
+
+def read_normalized(path: Path) -> str:
+    return path.read_text(encoding='utf-8').replace('\r\n', '\n')
+
+
 def check_regex(smoke_file: Path, name: str, pattern: Any) -> None:
     if not isinstance(pattern, str):
         error(f'{smoke_file}: {name} must be a string')
@@ -84,6 +109,18 @@ def check_diagnostics(smoke_file: Path, expected: Any) -> None:
         error(f'{smoke_file}: unknown keys in "expected_diagnostics" {sorted(unknown)}')
 
 
+def check_expected(smoke_file: Path, file: Path, smoke: dict[str, Any]) -> None:
+    if not any(key in smoke for key in EXPECTED_TEST_KEYS):
+        keys = ', '.join(f'"{key}"' for key in EXPECTED_TEST_KEYS)
+        error(f'{smoke_file}: set at least one of {keys}')
+    if 'expected_diagnostics' in smoke:
+        check_diagnostics(smoke_file, smoke['expected_diagnostics'])
+    if 'expected_hover' in smoke:
+        check_hover(smoke_file, file, smoke['expected_hover'])
+    if 'expected_formatting' in smoke:
+        check_formatting(smoke_file, file, smoke['expected_formatting'])
+
+
 def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
     smoke_file = find_smoke_file(fixture_dir)
     smoke = yaml.safe_load(smoke_file.read_text(encoding='utf-8'))
@@ -97,12 +134,7 @@ def load_smoke(package: str, fixture_dir: Path) -> dict[str, Any]:
         error(f'{smoke_file}: file "{smoke["file"]}" not found in the fixture directory')
     if 'session_name' not in smoke and not package:
         error(f'{smoke_file}: "session_name" is required when there is no package under test')
-    if 'expected_diagnostics' not in smoke and 'expected_hover' not in smoke:
-        error(f'{smoke_file}: set "expected_diagnostics", "expected_hover" or both')
-    if 'expected_hover' in smoke:
-        check_hover(smoke_file, fixture_dir / smoke['file'], smoke['expected_hover'])
-    if 'expected_diagnostics' in smoke:
-        check_diagnostics(smoke_file, smoke['expected_diagnostics'])
+    check_expected(smoke_file, fixture_dir / smoke['file'], smoke)
     settings = smoke.get('settings', {})
     if not isinstance(settings, dict) or not all(
         name.endswith(SETTINGS_SUFFIX) and isinstance(values, dict) for name, values in settings.items()

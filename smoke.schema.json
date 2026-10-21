@@ -6,7 +6,11 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["file"],
-  "anyOf": [{"required": ["expected_diagnostics"]}, {"required": ["expected_hover"]}],
+  "anyOf": [
+    {"required": ["expected_diagnostics"]},
+    {"required": ["expected_hover"]},
+    {"required": ["expected_formatting"]}
+  ],
   "properties": {
     "file": {
       "description": "The file to open, relative to the fixture directory.",
@@ -19,12 +23,16 @@
       "minLength": 1
     },
     "expected_diagnostics": {
-      "description": "The diagnostics the server is expected to report. Use `{}` for at least one diagnostic of any kind. Set this, `expected_hover` or both.",
+      "description": "The diagnostics the server is expected to report. Use `{}` for at least one diagnostic of any kind. Set at least one of `expected_diagnostics`, `expected_hover` and `expected_formatting`.",
       "allOf": [{"$ref": "#/definitions/diagnostics"}]
     },
     "expected_hover": {
-      "description": "The hover the server is expected to return. Checked in a separate test that starts the server again. Set this, `expected_diagnostics` or both.",
+      "description": "The hover the server is expected to return. Checked in a separate test that starts the server again. Set at least one of `expected_diagnostics`, `expected_hover` and `expected_formatting`.",
       "allOf": [{"$ref": "#/definitions/hover"}]
+    },
+    "expected_formatting": {
+      "description": "How the server is expected to format the file. Checked in a separate test that starts the server again. Set at least one of `expected_diagnostics`, `expected_hover` and `expected_formatting`.",
+      "allOf": [{"$ref": "#/definitions/formatting"}]
     },
     "syntax": {
       "description": "Scope of the syntax to assign to the file after opening it, for servers whose syntax isn't assigned automatically, for example by the file extension. The package providing the syntax can be installed with the extra-packages input.",
@@ -40,7 +48,7 @@
       "examples": [{"lsp_utils.sublime-settings": {"nodejs_runtime": ["system"]}}]
     },
     "diagnostics_timeout": {
-      "description": "Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover, including starting the server, which can include downloading or installing it. At most 240: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report.",
+      "description": "Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover or formatting, including starting the server, which can include downloading or installing it. At most 240: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report.",
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 240,
@@ -48,6 +56,13 @@
     },
     "hover_timeout": {
       "description": "Seconds to wait for the expected hover after the server has started. Starting the server is limited by `diagnostics_timeout`. At most 50, so that both together stay within the 300 seconds after which UnitTesting stops the run.",
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 50,
+      "default": 10
+    },
+    "formatting_timeout": {
+      "description": "Seconds to wait for the file to be formatted as expected after the server has started. Starting the server is limited by `diagnostics_timeout`. At most 50, so that both together stay within the 300 seconds after which UnitTesting stops the run.",
       "type": "number",
       "exclusiveMinimum": 0,
       "maximum": 50,
@@ -102,6 +117,20 @@
           "description": "A regular expression that the hover's contents must match. The contents are converted to a string first: the `value` of a `MarkupContent` or `MarkedString`, or the values of a list of `MarkedString`s joined with newlines. Markdown isn't rendered, so match its source. By default, any hover with non-empty contents matches.",
           "type": "string",
           "format": "regex"
+        }
+      }
+    },
+    "formatting": {
+      "description": "Request formatting of the whole file until it matches `result`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result"],
+      "properties": {
+        "result": {
+          "description": "The file with the expected result, relative to the fixture directory. The formatted file must match it exactly, apart from line endings. The formatting options sent to the server, such as the tab size, come from Sublime Text's settings, so avoid indentation if the server uses them.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["formatted.js"]
         }
       }
     }

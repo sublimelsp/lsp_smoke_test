@@ -7,16 +7,20 @@ together with the paths of copies of the fixture directories. This module create
 
 from __future__ import annotations
 
+from LSP.plugin import apply_text_edits
 from LSP.plugin import filename_to_uri
 from LSP.plugin import Request
 from LSP.plugin import text_document_position_params
 from LSP.plugin.core.registry import windows
+from LSP.plugin.core.views import text_document_formatting
 from pathlib import Path
 from typing import Any
+from typing import Callable
 from typing import ClassVar
 from typing import Generator
 from typing import TYPE_CHECKING
 from unittesting import DeferrableTestCase
+import difflib
 import itertools
 import json
 import re
@@ -35,15 +39,18 @@ if TYPE_CHECKING:
     from LSP.protocol import Hover
     from LSP.protocol import MarkedString
     from LSP.protocol import MarkupContent
+    from LSP.protocol import TextEdit
 
 PACKAGE_DIR = Path(__file__).parent.parent
 # Also covers starting the server, which can include downloading or installing it.
 DEFAULT_DIAGNOSTICS_TIMEOUT_S = 180
 # After the server has started.
 DEFAULT_HOVER_TIMEOUT_S = 10
-# Servers can return no hover while they are still processing the file, so the request is repeated.
-HOVER_RETRY_INTERVAL_S = 1
-HOVER_REPORT_CHARS = 500
+DEFAULT_FORMATTING_TIMEOUT_S = 10
+# Servers can return no hover or edits while they are still processing the file, so requests are repeated.
+REQUEST_RETRY_INTERVAL_S = 1
+RESPONSE_REPORT_CHARS = 500
+DIFF_REPORT_LINES = 50
 VIEW_LOAD_TIMEOUT_MS = 10_000
 SESSION_END_TIMEOUT_MS = 10_000
 LOG_LINES = 200
@@ -51,7 +58,11 @@ SEVERITY_NAMES = {1: 'error', 2: 'warning', 3: 'information', 4: 'hint'}
 # LSP logs protocol messages under this name instead of a server name.
 PROTOCOL_LOG_NAME = ':'
 # The smoke.yaml key that each test checks. A test is skipped when its key isn't set.
-TEST_KEYS = {'test_diagnostics': 'expected_diagnostics', 'test_hover': 'expected_hover'}
+TEST_KEYS = {
+    'test_diagnostics': 'expected_diagnostics',
+    'test_hover': 'expected_hover',
+    'test_formatting': 'expected_formatting',
+}
 
 
 def load_configs() -> list[dict[str, Any]]:
@@ -62,6 +73,8 @@ def load_configs() -> list[dict[str, Any]]:
         smoke['name'] = test['name']
         smoke['fixture_dir'] = str(fixture_dir)
         smoke['file_path'] = str(fixture_dir / smoke['file'])
+        if formatting := smoke.get('expected_formatting'):
+            formatting['result_path'] = str(fixture_dir / formatting['result'])
         configs.append(smoke)
     return configs
 
@@ -96,6 +109,21 @@ def hover_matches(hover: Hover | None, expected: dict[str, Any]) -> bool:
     if 'match' in expected:
         return re.search(expected['match'], text) is not None
     return bool(text.strip())
+
+
+def read_normalized(path: str) -> str:
+    return Path(path).read_text(encoding='utf-8').replace('\r\n', '\n')
+
+
+def truncate(text: str) -> str:
+    return text[:RESPONSE_REPORT_CHARS] + '...' if len(text) > RESPONSE_REPORT_CHARS else text
+
+
+def format_diff(expected: str, actual: str) -> str:
+    diff = list(difflib.unified_diff(expected.splitlines(), actual.splitlines(), 'expected', 'formatted', lineterm=''))
+    if len(diff) > DIFF_REPORT_LINES:
+        diff = [*diff[:DIFF_REPORT_LINES], f'... {len(diff) - DIFF_REPORT_LINES} more lines']
+    return '\n'.join(f'  {line}' for line in diff)
 
 
 def format_diagnostic(diagnostic: Diagnostic) -> str:
@@ -264,28 +292,44 @@ class SmokeTest(DeferrableTestCase):
                 reason = f'Session "{self.config["session_name"]}" did not start within {timeout} seconds.'
             self.fail(self.failure_report(reason))
 
-    def test_hover(self) -> Generator[Any, None, None]:
-        expected = self.config['expected_hover']
-        region = self.view.find(expected['at'], 0, sublime.LITERAL)
-        if region.a < 0:
-            self.fail(f'Text "{expected["at"]}" not found in {self.config["file"]}.')
-        point = region.a
+    def request_until_matched(
+        self, capability: str, request_async: Callable[[Session], None], timeout: float, failure: Callable[[], str]
+    ) -> Generator[Any, None, None]:
+        """
+        Wait for the server to start, then repeat a request until its response matches.
+
+        `request_async` is called every `REQUEST_RETRY_INTERVAL_S` on the worker thread, where LSP has to be called,
+        with the session under test. It sends the request, and when it's done, sets `self.last_response`,
+        `self.matched` and `self.request_pending = False`.
+        """
         startup_timeout = self.config.get('diagnostics_timeout', DEFAULT_DIAGNOSTICS_TIMEOUT_S)
-        timeout = self.config.get('hover_timeout', DEFAULT_HOVER_TIMEOUT_S)
-        # Set from the worker thread, where LSP has to be called.
+        # Set from the worker thread.
         self.session_ready = False
-        self.hover_pending = False
-        self.hover_sent_at = 0.0
-        self.hover_response: str | None = None
-        self.hover_matched = False
+        self.request_pending = False
+        self.request_sent_at = 0.0
+        self.last_response: str | None = None
+        self.matched = False
+
+        def send_async() -> None:
+            session = self.find_session()
+            # The view is attached once LSP has sent the server the didOpen notification.
+            if not session or not session.session_view_for_view_async(self.view):
+                self.request_pending = False
+                return
+            self.session_ready = True
+            if not session.has_capability(capability):
+                self.last_response = f'the server does not have the {capability} capability'
+                self.request_pending = False
+                return
+            request_async(session)
 
         def poll() -> bool:
-            if self.hover_matched:
+            if self.matched:
                 return True
-            if not self.hover_pending and time.monotonic() - self.hover_sent_at >= HOVER_RETRY_INTERVAL_S:
-                self.hover_pending = True
-                self.hover_sent_at = time.monotonic()
-                sublime.set_timeout_async(lambda: self.request_hover_async(point, expected))
+            if not self.request_pending and time.monotonic() - self.request_sent_at >= REQUEST_RETRY_INTERVAL_S:
+                self.request_pending = True
+                self.request_sent_at = time.monotonic()
+                sublime.set_timeout_async(send_async)
             return False
 
         try:
@@ -296,39 +340,69 @@ class SmokeTest(DeferrableTestCase):
         try:
             yield {'condition': poll, 'timeout': timeout * 1000}
         except TimeoutError:
+            self.fail(self.failure_report(failure()))
+
+    def on_error(self, error: Any) -> None:
+        self.last_response = f'error: {error["message"]}'
+        self.request_pending = False
+
+    def test_hover(self) -> Generator[Any, None, None]:
+        expected = self.config['expected_hover']
+        region = self.view.find(expected['at'], 0, sublime.LITERAL)
+        if region.a < 0:
+            self.fail(f'Text "{expected["at"]}" not found in {self.config["file"]}.')
+        point = region.a
+        timeout = self.config.get('hover_timeout', DEFAULT_HOVER_TIMEOUT_S)
+
+        def request_async(session: Session) -> None:
+            def on_result(hover: Hover | None) -> None:
+                self.last_response = json.dumps(hover)
+                self.matched = hover_matches(hover, expected)
+                self.request_pending = False
+
+            params = text_document_position_params(self.view, point)
+            session.send_request_async(Request('textDocument/hover', params, self.view), on_result, self.on_error)
+
+        def failure() -> str:
             row, col = self.view.rowcol(point)
-            response = self.hover_response or 'none'
-            if len(response) > HOVER_REPORT_CHARS:
-                response = response[:HOVER_REPORT_CHARS] + '...'
-            reason = (
+            return (
                 f'Expected a hover matching {json.dumps(expected)} at {row + 1}:{col + 1} '
-                f'within {timeout} seconds after the server started. Last response: {response}'
+                f'within {timeout} seconds after the server started. '
+                f'Last response: {truncate(self.last_response or "none")}'
             )
-            self.fail(self.failure_report(reason))
 
-    def request_hover_async(self, point: int, expected: dict[str, Any]) -> None:
-        session = self.find_session()
-        # The view is attached once LSP has sent the server the didOpen notification.
-        if not session or not session.session_view_for_view_async(self.view):
-            self.hover_pending = False
-            return
-        self.session_ready = True
-        if not session.has_capability('hoverProvider'):
-            self.hover_response = 'the server does not have the hoverProvider capability'
-            self.hover_pending = False
-            return
+        yield from self.request_until_matched('hoverProvider', request_async, timeout, failure)
 
-        def on_result(hover: Hover | None) -> None:
-            self.hover_response = json.dumps(hover)
-            self.hover_matched = hover_matches(hover, expected)
-            self.hover_pending = False
+    def test_formatting(self) -> Generator[Any, None, None]:
+        expected = self.config['expected_formatting']
+        expected_text = read_normalized(expected['result_path'])
+        timeout = self.config.get('formatting_timeout', DEFAULT_FORMATTING_TIMEOUT_S)
 
-        def on_error(error: Any) -> None:
-            self.hover_response = f'error: {error["message"]}'
-            self.hover_pending = False
+        def view_text() -> str:
+            return self.view.substr(sublime.Region(0, self.view.size()))
 
-        params = text_document_position_params(self.view, point)
-        session.send_request_async(Request('textDocument/hover', params, self.view), on_result, on_error)
+        def request_async(session: Session) -> None:
+            def on_applied(_: object) -> None:
+                self.matched = view_text() == expected_text
+                self.request_pending = False
+
+            def on_result(edits: list[TextEdit] | None) -> None:
+                self.last_response = json.dumps(edits)
+                # Apply the edits like LSP does, rather than through its format command, which asks which server to
+                # use when several can format the file.
+                apply_text_edits(self.view, edits or []).then(on_applied)
+
+            request = text_document_formatting(self.view)
+            session.send_request_async(request, on_result, self.on_error)
+
+        def failure() -> str:
+            return (
+                f'Expected {self.config["file"]} to be formatted like {expected["result"]} within {timeout} seconds '
+                f'after the server started. Last response: {truncate(self.last_response or "none")}\n'
+                f'Difference:\n{format_diff(expected_text, view_text())}'
+            )
+
+        yield from self.request_until_matched('documentFormattingProvider', request_async, timeout, failure)
 
 
 # Create a test case for each fixture. The base class is removed from the module, so that it isn't run on its own.

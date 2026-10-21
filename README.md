@@ -2,7 +2,7 @@
 
 A GitHub Actions workflow that checks that an LSP package for Sublime Text works: it installs the package in Sublime
 Text together with [LSP](https://github.com/sublimelsp/LSP), opens a sample file, waits for the language server to
-start and checks that it reports the expected diagnostics or returns the expected hover.
+start and checks that it reports the expected diagnostics, returns the expected hover or formats the file as expected.
 
 ## Usage
 
@@ -64,10 +64,12 @@ such as an unknown key or a missing file fails the job right away.
 | `session_name` | The package name | Name of the LSP session. Only needed for plugins whose name differs from the package name. |
 | `expected_diagnostics` | | The diagnostics to wait for, see below. |
 | `expected_hover` | | The hover to wait for, see below. |
+| `expected_formatting` | | The formatting to wait for, see below. |
 | `syntax` | | Scope of the syntax to assign to the file, for example `source.yaml.esphome`, when it isn't assigned automatically by the file extension. Install the package that provides it with `extra-packages`. |
 | `settings` | | Settings to apply while the test runs, by settings file name, for example `lsp_utils.sublime-settings: {nodejs_runtime: [system]}`. They are restored afterwards. |
-| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover, including starting the server, which can include downloading or installing it. At most `240`: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report. |
+| `diagnostics_timeout` | `180` | Seconds to wait for the expected diagnostics, or for the server to start before requesting the hover or formatting, including starting the server, which can include downloading or installing it. At most `240`: UnitTesting stops the run after 300 seconds without test output, which would hide the failure report. |
 | `hover_timeout` | `10` | Seconds to wait for the expected hover after the server has started. At most `50`. |
+| `formatting_timeout` | `10` | Seconds to wait for the file to be formatted as expected after the server has started. At most `50`. |
 
 `expected_diagnostics` describes the diagnostics to wait for: at least `min_count` (default `1`) diagnostics matching
 all of the given keys. `expected_diagnostics: {}` waits for any diagnostic.
@@ -95,8 +97,25 @@ expected_hover:
   match: '\(variable\) foo: str'
 ```
 
-Set `expected_diagnostics`, `expected_hover` or both. Only what is set is checked. Diagnostics and hover are checked
-in separate tests, so with both, the server is started twice.
+`expected_formatting` describes how the server should format the file, for formatters that report no diagnostics and
+have no hover. The whole file is formatted with `textDocument/formatting` and the edits are applied, again every second
+until the file matches or `formatting_timeout` runs out.
+
+| Key | Description |
+|---|---|
+| `result` | The file with the expected result, relative to the fixture directory, required. The formatted file must match it exactly, apart from line endings. It must differ from `file`. |
+
+The formatting options sent to the server, such as the tab size, come from Sublime Text's settings, so leave out
+indentation if the server uses them, or set them with `settings`.
+
+```yaml
+file: sample.js
+expected_formatting:
+  result: formatted.js
+```
+
+Set at least one of `expected_diagnostics`, `expected_hover` and `expected_formatting`. Only what is set is checked.
+Each is checked in a separate test, so the server is started once for each.
 
 When a test fails, it prints the sessions running in the window, the diagnostics received and the last lines of the
 server log.
