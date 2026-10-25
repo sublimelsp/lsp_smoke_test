@@ -120,6 +120,11 @@ Each is checked in a separate test, so the server is started once for each.
 When a test fails, it prints the sessions running in the window, the diagnostics received and the last lines of the
 server log.
 
+While a test runs, the dialogs that LSP shows, for example when the server fails to start or has crashed several times,
+are answered with Cancel, or OK when it's the only button, instead of waiting for someone to click, which would block
+Sublime Text until UnitTesting stops the run without printing the report. A dialog fails the test right away, and the
+report includes its message and the answer given.
+
 ## Workflow inputs
 
 All inputs are optional.
