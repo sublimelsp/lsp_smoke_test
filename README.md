@@ -121,9 +121,9 @@ When a test fails, it prints the sessions running in the window, the diagnostics
 server log.
 
 While a test runs, the dialogs that LSP shows, for example when the server fails to start or has crashed several times,
-are answered with Cancel or No instead of waiting for someone to click, which would block Sublime Text until UnitTesting
-stops the run without printing the report. A dialog fails the test right away, and its message is included in the
-report.
+are answered with Cancel, or OK when it's the only button, instead of waiting for someone to click, which would block
+Sublime Text until UnitTesting stops the run without printing the report. A dialog fails the test right away, and the
+report includes its message and the answer given.
 
 ## Workflow inputs
 

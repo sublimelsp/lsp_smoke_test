@@ -63,14 +63,14 @@ TEST_KEYS = {
     'test_hover': 'expected_hover',
     'test_formatting': 'expected_formatting',
 }
-# Dialogs that LSP shows, for example when a server fails to start or keeps crashing, and what the stubs that replace
-# them while a test runs return: Cancel or No. Nobody answers a dialog on CI, so it would block the plugin host until
-# UnitTesting stops the run, and the failure report would never be printed.
-DIALOG_ANSWERS: dict[str, object] = {
-    'ok_cancel_dialog': False,
-    'yes_no_cancel_dialog': sublime.DIALOG_CANCEL,
-    'message_dialog': None,
-    'error_message': None,
+# Dialogs that LSP shows, for example when a server fails to start or keeps crashing, with what the stubs that replace
+# them while a test runs return, and the button that it stands for in the failure report. Nobody answers a dialog on CI,
+# so it would block the plugin host until UnitTesting stops the run, and the failure report would never be printed.
+DIALOG_ANSWERS: dict[str, tuple[object, str]] = {
+    'ok_cancel_dialog': (False, 'Cancel'),
+    'yes_no_cancel_dialog': (sublime.DIALOG_CANCEL, 'Cancel'),
+    'message_dialog': (None, 'OK'),
+    'error_message': (None, 'OK'),
 }
 
 
@@ -158,7 +158,8 @@ def format_log_line(name: str, message: str) -> str:
 
 
 def format_dialog(function: str, message: str) -> str:
-    return '\n'.join(f'  {line}' for line in f'{function}: {message}'.splitlines())
+    button = DIALOG_ANSWERS[function][1]
+    return '\n'.join(f'  {line}' for line in f'{function}, answered {button}: {message}'.splitlines())
 
 
 class SmokeTest(DeferrableTestCase):
@@ -215,7 +216,7 @@ class SmokeTest(DeferrableTestCase):
         # LSP and lsp_utils call the dialogs as attributes of the sublime module, which all plugins share, rather than
         # importing them, so replacing them in the module is enough. Restored by a cleanup, which runs after tearDown.
         self.dialogs: list[tuple[str, str]] = []
-        for function, answer in DIALOG_ANSWERS.items():
+        for function, (answer, _) in DIALOG_ANSWERS.items():
 
             def stub(message: str, *_: object, function: str = function, answer: object = answer, **__: object) -> Any:
                 self.dialogs.append((function, message))
@@ -311,7 +312,7 @@ class SmokeTest(DeferrableTestCase):
     def failure_report(self, reason: str) -> str:
         lines = [reason]
         if self.dialogs:
-            lines.append(f'Dialogs shown, answered with Cancel or No: {len(self.dialogs)}')
+            lines.append(f'Dialogs shown: {len(self.dialogs)}')
             lines.extend(itertools.starmap(format_dialog, self.dialogs))
         wm = windows.lookup(self.window)
         if wm:

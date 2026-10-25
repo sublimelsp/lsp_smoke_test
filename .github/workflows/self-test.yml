@@ -104,4 +104,5 @@ jobs:
           result="$SUBLIME_TEXT_PACKAGES/User/UnitTesting/LSPSmokeTest/result"
           test "$OUTCOME" = failure
           grep -q 'LSP showed a dialog' "$result"
-          grep -q 'Dialogs shown, answered with Cancel or No' "$result"
+          grep -q 'Dialogs shown: ' "$result"
+          grep -Eq '(message_dialog, answered OK|ok_cancel_dialog, answered Cancel): ' "$result"
