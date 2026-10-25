@@ -22,8 +22,10 @@ inputs:
     default: tests/smoke
   extra-packages:
     description: >-
-      Other packages to install, one per line, in the form user/repo@ref or package:user/repo@ref. Without @ref, the
-      latest x.y.z tag is used.
+      Other packages to install, one per line. A package name, such as LSP-pyright, is installed by Package Control,
+      which picks the latest release compatible with the Sublime Text build. Packages that aren't on Package Control, or
+      a specific branch or tag, in the form user/repo@ref or package:user/repo@ref. Without @ref, the latest x.y.z tag
+      is used.
     default: ''
   local-libraries:
     description: >-

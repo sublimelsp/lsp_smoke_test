@@ -17,7 +17,7 @@ jobs:
         package: [LSP-esphome, LSP-json, LSP-oxfmt, LSP-ruff, LSP-rust-analyzer]
         include:
           - package: LSP-esphome
-            extra-packages: SublimeText/ESPHome@4143-
+            extra-packages: ESPHome
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out action
@@ -65,8 +65,8 @@ jobs:
         with:
           install-package: false
           extra-packages: |
-            sublimelsp/LSP-pyright
-            sublimelsp/LSP-ruff
+            LSP-pyright
+            LSP-ruff
           local-libraries: lsp_utils=lsp_utils/lsp_utils
           fixture-dir: |
             ${{ github.workspace }}/action/examples/LSP-pyright

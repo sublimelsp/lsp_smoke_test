@@ -135,7 +135,7 @@ All inputs are optional.
 | `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
 | `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`, or several, one per line. Each directory is a separate test, all run in the same Sublime Text session, so they need different names. |
 | `package-name` | Repository name | Name of the package under test. |
-| `extra-packages` | | Other packages to install, one per line, as `user/repo@ref`. Without `@ref`, the latest `x.y.z` tag is used. |
+| `extra-packages` | | Other packages to install, one per line. A package name, such as `LSP-pyright`, is installed by Package Control, which picks the latest release compatible with the Sublime Text build. Packages that aren't on Package Control, or a specific branch or tag, as `user/repo@ref` or `package:user/repo@ref`. Without `@ref`, the latest `x.y.z` tag is used. |
 
 ## Requiring the smoke test
 
@@ -200,8 +200,8 @@ steps:
     with:
       install-package: false
       extra-packages: |
-        sublimelsp/LSP-pyright
-        sublimelsp/LSP-ruff
+        LSP-pyright
+        LSP-ruff
       local-libraries: lsp_utils=lsp_utils/lsp_utils
       fixture-dir: |
         lsp_utils/tests/smoke/pyright
