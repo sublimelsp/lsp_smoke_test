@@ -126,7 +126,7 @@ All inputs are optional.
 
 | Input | Default | Description |
 |---|---|---|
-| `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. |
+| `lsp-ref` | Latest release | Branch, tag or commit of LSP to test against. Without it, Package Control installs the latest release compatible with the Sublime Text build. |
 | `os` | `'["ubuntu-latest", "macos-latest", "windows-latest"]'` | JSON list of runners. |
 | `fixture-dir` | `tests/smoke` | Directory containing `smoke.yaml`, or several, one per line. Each directory is a separate test, all run in the same Sublime Text session, so they need different names. |
 | `package-name` | Repository name | Name of the package under test. |
