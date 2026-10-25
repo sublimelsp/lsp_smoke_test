@@ -63,6 +63,15 @@ TEST_KEYS = {
     'test_hover': 'expected_hover',
     'test_formatting': 'expected_formatting',
 }
+# Dialogs that LSP shows, for example when a server fails to start or keeps crashing, and what the stubs that replace
+# them while a test runs return: Cancel or No. Nobody answers a dialog on CI, so it would block the plugin host until
+# UnitTesting stops the run, and the failure report would never be printed.
+DIALOG_ANSWERS: dict[str, object] = {
+    'ok_cancel_dialog': False,
+    'yes_no_cancel_dialog': sublime.DIALOG_CANCEL,
+    'message_dialog': None,
+    'error_message': None,
+}
 
 
 def load_configs() -> list[dict[str, Any]]:
@@ -148,6 +157,10 @@ def format_log_line(name: str, message: str) -> str:
     return f'  {message}' if name == PROTOCOL_LOG_NAME else f'  {name}: {message}'
 
 
+def format_dialog(function: str, message: str) -> str:
+    return '\n'.join(f'  {line}' for line in f'{function}: {message}'.splitlines())
+
+
 class SmokeTest(DeferrableTestCase):
     # Set on the subclass created for each fixture, see the end of this module.
     config: ClassVar[dict[str, Any]]
@@ -157,6 +170,7 @@ class SmokeTest(DeferrableTestCase):
         key = TEST_KEYS[self._testMethodName]
         if self.config.get(key) is None:
             self.skipTest(f'No {key} configured.')
+        self.stub_dialogs()
         self.apply_settings()
         self.window = sublime.active_window()
         self.previous_project_data = self.window.project_data()
@@ -196,6 +210,42 @@ class SmokeTest(DeferrableTestCase):
                 self.fail(self.failure_report(reason))
         finally:
             self.window.set_project_data(self.previous_project_data or {})
+
+    def stub_dialogs(self) -> None:
+        # LSP and lsp_utils call the dialogs as attributes of the sublime module, which all plugins share, rather than
+        # importing them, so replacing them in the module is enough. Restored by a cleanup, which runs after tearDown.
+        self.dialogs: list[tuple[str, str]] = []
+        for function, answer in DIALOG_ANSWERS.items():
+
+            def stub(message: str, *_: object, function: str = function, answer: object = answer, **__: object) -> Any:
+                self.dialogs.append((function, message))
+                return answer
+
+            self.addCleanup(setattr, sublime, function, getattr(sublime, function))
+            setattr(sublime, function, stub)
+
+    def wait(
+        self, condition: Callable[[], bool], timeout: float, reason: Callable[[], str]
+    ) -> Generator[Any, None, None]:
+        """
+        Wait up to `timeout` seconds for `condition`, and fail with `reason` if it isn't met.
+
+        Fail right away when LSP shows a dialog instead, since it has then given up on the server, for example after it
+        crashed several times or failed to start.
+        """
+        met = False
+
+        def check() -> bool:
+            nonlocal met
+            met = condition()
+            return met or bool(self.dialogs)
+
+        try:
+            yield {'condition': check, 'timeout': timeout * 1000}
+        except TimeoutError:
+            self.fail(self.failure_report(reason()))
+        if not met:
+            self.fail(self.failure_report('LSP showed a dialog, so the server failed to start or crashed.'))
 
     def apply_settings(self) -> None:
         # Settings have to be in place before the file is opened, since that starts the server. Cleanups run even when
@@ -260,6 +310,9 @@ class SmokeTest(DeferrableTestCase):
 
     def failure_report(self, reason: str) -> str:
         lines = [reason]
+        if self.dialogs:
+            lines.append(f'Dialogs shown, answered with Cancel or No: {len(self.dialogs)}')
+            lines.extend(itertools.starmap(format_dialog, self.dialogs))
         wm = windows.lookup(self.window)
         if wm:
             sessions = ', '.join(session.config.name for session in wm.get_sessions()) or 'none'
@@ -280,17 +333,15 @@ class SmokeTest(DeferrableTestCase):
         def matching() -> list[Diagnostic]:
             return [d for d in self.diagnostics() if diagnostic_matches(d, expected)]
 
-        try:
-            yield {'condition': lambda: len(matching()) >= min_count, 'timeout': timeout * 1000}
-        except TimeoutError:
+        def reason() -> str:
             if self.find_session():
-                reason = (
+                return (
                     f'Expected at least {min_count} diagnostic(s) matching {json.dumps(expected)} '
                     f'within {timeout} seconds, got {len(matching())}.'
                 )
-            else:
-                reason = f'Session "{self.config["session_name"]}" did not start within {timeout} seconds.'
-            self.fail(self.failure_report(reason))
+            return f'Session "{self.config["session_name"]}" did not start within {timeout} seconds.'
+
+        yield from self.wait(lambda: len(matching()) >= min_count, timeout, reason)
 
     def request_until_matched(
         self, capability: str, request_async: Callable[[Session], None], timeout: float, failure: Callable[[], str]
@@ -332,15 +383,12 @@ class SmokeTest(DeferrableTestCase):
                 sublime.set_timeout_async(send_async)
             return False
 
-        try:
-            yield {'condition': lambda: poll() or self.session_ready, 'timeout': startup_timeout * 1000}
-        except TimeoutError:
-            reason = f'Session "{self.config["session_name"]}" did not start within {startup_timeout} seconds.'
-            self.fail(self.failure_report(reason))
-        try:
-            yield {'condition': poll, 'timeout': timeout * 1000}
-        except TimeoutError:
-            self.fail(self.failure_report(failure()))
+        yield from self.wait(
+            lambda: poll() or self.session_ready,
+            startup_timeout,
+            lambda: f'Session "{self.config["session_name"]}" did not start within {startup_timeout} seconds.',
+        )
+        yield from self.wait(poll, timeout, failure)
 
     def on_error(self, error: Any) -> None:
         self.last_response = f'error: {error["message"]}'

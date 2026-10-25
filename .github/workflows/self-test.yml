@@ -72,3 +72,36 @@ jobs:
             ${{ github.workspace }}/action/examples/LSP-pyright
             ${{ github.workspace }}/action/examples/LSP-pyright-system-node
             ${{ github.workspace }}/action/examples/LSP-ruff
+
+  # A server that keeps crashing makes LSP show a dialog. The test has to fail with the report, which includes the
+  # dialog's message, rather than block on it until UnitTesting stops the run with "Timeout: output is frozen".
+  crash:
+    name: Crashing server (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out action
+        uses: actions/checkout@v7
+        with:
+          path: action
+
+      - name: Run smoke test
+        id: smoke
+        continue-on-error: true
+        uses: ./action
+        with:
+          install-package: false
+          fixture-dir: ${{ github.workspace }}/action/examples/crashing-server
+
+      - name: Check that the test failed with a report
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          result="$SUBLIME_TEXT_PACKAGES/User/UnitTesting/LSPSmokeTest/result"
+          test "$OUTCOME" = failure
+          grep -q 'LSP showed a dialog' "$result"
+          grep -q 'Dialogs shown, answered with Cancel or No' "$result"

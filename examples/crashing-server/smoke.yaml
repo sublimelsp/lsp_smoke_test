@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../smoke.schema.json
+# Not a real package: a server that exits right away, so that LSP restarts it until it gives up and shows a dialog.
+# The self-test checks that the test fails with a report instead of blocking on the dialog until UnitTesting stops it.
+file: sample.txt
+session_name: smoke-test-crash
+expected_diagnostics: {}
+diagnostics_timeout: 60
+settings:
+  LSP.sublime-settings:
+    clients:
+      smoke-test-crash:
+        enabled: true
+        # git is on the PATH of every runner, and exits with code 1 for an unknown command.
+        command: [git, smoke-test-crash]
+        selector: text.plain
