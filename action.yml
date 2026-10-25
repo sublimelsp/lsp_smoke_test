@@ -32,11 +32,9 @@ inputs:
     default: ''
   lsp-ref:
     description: >-
-      Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
+      Branch, tag or commit of sublimelsp/LSP to test against. If empty, the latest release compatible with the Sublime
+      Text build, installed by Package Control.
     default: ''
-  github-token:
-    description: Token used to look up the latest LSP release.
-    default: ${{ github.token }}
 
 runs:
   using: composite
@@ -52,7 +50,6 @@ runs:
         INPUT_PACKAGE_PATH: ${{ inputs.package-path }}
         INPUT_FIXTURE_DIR: ${{ inputs.fixture-dir }}
         INPUT_LSP_REF: ${{ inputs.lsp-ref }}
-        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
       run: python "$GITHUB_ACTION_PATH/scripts/prepare.py"
 
     - name: Set up Sublime Text
@@ -63,7 +60,7 @@ runs:
         install-package: ${{ inputs.install-package }}
         package-path: ${{ inputs.package-path }}
         extra-packages: |
-          sublimelsp/LSP@${{ steps.prepare.outputs.lsp-ref }}
+          ${{ steps.prepare.outputs.lsp-package }}
           ${{ inputs.extra-packages }}
 
     - name: Install smoke test harness

@@ -5,7 +5,7 @@ on:
     inputs:
       lsp-ref:
         description: >-
-          Branch, tag or commit of sublimelsp/LSP to test against. The latest release if empty.
+          Branch, tag or commit of sublimelsp/LSP to test against. The latest compatible release if empty.
         type: string
         default: ''
       os:

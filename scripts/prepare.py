@@ -2,17 +2,14 @@
 Resolve the action's inputs, validate the smoke.yaml files and prepare the fixtures.
 
 Runs on the GitHub runner before Sublime Text is installed, so that configuration mistakes fail the job right away.
-Writes the `package` and `lsp-ref` step outputs, and `lsp-smoke-config.json` and `lsp-smoke-fixtures` in the runner's
-temporary directory for install_harness.py.
+Writes the `package` and `lsp-package` step outputs, and `lsp-smoke-config.json` and `lsp-smoke-fixtures` in the
+runner's temporary directory for install_harness.py.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import NoReturn
-from urllib.request import Request
-from urllib.request import urlopen
-import json
 import os
 import shutil
 import subprocess
@@ -28,15 +25,6 @@ def error(message: str) -> NoReturn:
     sys.exit(1)
 
 
-def latest_lsp_release(token: str) -> str:
-    request = Request('https://api.github.com/repos/sublimelsp/LSP/releases/latest')
-    request.add_header('Accept', 'application/vnd.github+json')
-    if token:
-        request.add_header('Authorization', f'Bearer {token}')
-    with urlopen(request, timeout=30) as response:
-        return json.load(response)['tag_name']
-
-
 def venv_python(venv_dir: Path) -> Path:
     if sys.platform == 'win32':
         return venv_dir / 'Scripts' / 'python.exe'
@@ -50,14 +38,15 @@ def main() -> None:
     install_package = env['INPUT_INSTALL_PACKAGE'] == 'true'
     # Without a package under test, every smoke.yaml has to name its session.
     package = env['INPUT_PACKAGE_NAME'] or (env['GITHUB_REPOSITORY'].split('/', 1)[1] if install_package else '')
-    lsp_ref = env['INPUT_LSP_REF'] or latest_lsp_release(env['INPUT_GITHUB_TOKEN'])
+    # Without a ref, Package Control installs the latest release of LSP compatible with the Sublime Text build.
+    lsp_package = f'sublimelsp/LSP@{env["INPUT_LSP_REF"]}' if env['INPUT_LSP_REF'] else 'LSP'
     # An absolute fixture-dir is used as is, since joining an absolute path replaces the base.
     lines = [line.strip() for line in env['INPUT_FIXTURE_DIR'].splitlines() if line.strip()]
     fixture_srcs = [Path(package_path, line).resolve() for line in lines]
     names = [path.name for path in fixture_srcs]
     if duplicates := sorted({name for name in names if names.count(name) > 1}):
         error(f'fixture directories must have different names: {duplicates}')
-    print(f'Testing {package or "packages"} against sublimelsp/LSP@{lsp_ref}', flush=True)
+    print(f'Testing {package or "packages"} against {lsp_package}', flush=True)
 
     # Copy the fixtures out of the package checkout, so that the server doesn't find the package's own configuration
     # files (pyproject.toml, .editorconfig, ...) above them.
@@ -89,7 +78,7 @@ def main() -> None:
         sys.exit(result.returncode)
 
     with Path(env['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
-        output.write(f'package={package}\nlsp-ref={lsp_ref}\n')
+        output.write(f'package={package}\nlsp-package={lsp_package}\n')
 
 
 if __name__ == '__main__':
