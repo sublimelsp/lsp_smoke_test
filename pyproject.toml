@@ -11,7 +11,7 @@ dev = [
   "pyyaml==6.0.3",
   "ruff==0.17.3",
   "sublime-text-stubs==4200.1",
-  "types-pyyaml==6.0.12.20260906",
+  "types-pyyaml==6.0.12.20261030",
 ]
 
 [tool.pyright]
