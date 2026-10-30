@@ -55,7 +55,7 @@ runs:
       run: python "$GITHUB_ACTION_PATH/scripts/prepare.py"
 
     - name: Set up Sublime Text
-      uses: SublimeText/UnitTesting/actions/setup@v1
+      uses: SublimeText/UnitTesting/actions/setup@master
       with:
         sublime-text-version: 4
         package-name: ${{ steps.prepare.outputs.package }}
