@@ -72,6 +72,6 @@ runs:
       run: python "$GITHUB_ACTION_PATH/scripts/install_harness.py"
 
     - name: Run smoke test
-      uses: SublimeText/UnitTesting/actions/run-tests@v1
+      uses: SublimeText/UnitTesting/actions/run-tests@master
       with:
         package-name: LSPSmokeTest
