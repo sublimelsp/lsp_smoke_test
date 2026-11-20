@@ -2,18 +2,20 @@
 Resolve the action's inputs, validate the smoke.yaml files and prepare the fixtures.
 
 Runs on the GitHub runner before Sublime Text is installed, so that configuration mistakes fail the job right away.
-Writes the `package` and `lsp-package` step outputs, and `lsp-smoke-config.json` and `lsp-smoke-fixtures` in the
-runner's temporary directory for install_harness.py.
+Writes the `package`, `lsp-package` and `package-path` step outputs, and `lsp-smoke-config.json` and
+`lsp-smoke-fixtures` in the runner's temporary directory for install_harness.py.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import NoReturn
+import io
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import venv
 
 PYYAML_VERSION = '6.0.3'
@@ -29,6 +31,34 @@ def venv_python(venv_dir: Path) -> Path:
     if sys.platform == 'win32':
         return venv_dir / 'Scripts' / 'python.exe'
     return venv_dir / 'bin' / 'python'
+
+
+def export_package(package_path: str, dest: Path) -> str:
+    """
+    Export the committed files of the package checkout to `dest`, the way Package Control gets them, and return `dest`.
+
+    Package Control installs the archive that GitHub, GitLab or Bitbucket generate for a release, which leaves out the
+    files marked `export-ignore` in .gitattributes. A plain copy of the checkout would include them, so a package that
+    excludes a file it needs would pass the test and break once released.
+    """
+    git_path = shutil.which('git')
+    if not git_path:
+        error('git not found')
+    git = [git_path, '-C', package_path]
+    if subprocess.run([*git, 'rev-parse', '--git-dir'], capture_output=True, check=False).returncode:
+        error(f'package-path {package_path} is not a git checkout')
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.mkdir(parents=True)
+    archive = subprocess.run([*git, 'archive', '--format=tar', 'HEAD'], capture_output=True, check=True).stdout
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        exported = {member.name for member in tar.getmembers() if not member.isdir()}
+        tar.extractall(dest, filter='data')
+    tracked = subprocess.run([*git, 'ls-files', '-z'], capture_output=True, check=True, encoding='utf-8').stdout
+    if excluded := sorted(set(tracked.split('\0')) - exported - {''}):
+        print(f'Left out by export-ignore, as in the release Package Control installs: {", ".join(excluded)}')
+    # UnitTesting's setup only copies a package directory that contains .git, and removes it from the copy.
+    subprocess.run([git_path, 'init', '--quiet', str(dest)], check=True)
+    return str(dest)
 
 
 def main() -> None:
@@ -77,8 +107,12 @@ def main() -> None:
     if result.returncode:
         sys.exit(result.returncode)
 
+    # Install the package from its committed files without the ones marked export-ignore, like Package Control would.
+    if install_package:
+        package_path = export_package(package_path, temp_dir / 'lsp-smoke-package' / (package or 'package'))
+
     with Path(env['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
-        output.write(f'package={package}\nlsp-package={lsp_package}\n')
+        output.write(f'package={package}\nlsp-package={lsp_package}\npackage-path={package_path}\n')
 
 
 if __name__ == '__main__':

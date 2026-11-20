@@ -48,6 +48,10 @@ gives completion, documentation on hover and validation.
 The directory is copied to a temporary location and opened as the only folder of the Sublime Text window, so it acts as
 the workspace root. Put any project files the server needs in it, such as `Cargo.toml` or `package.json`.
 
+The package is installed from its committed files, without the ones marked `export-ignore` in `.gitattributes`, like
+in the release that Package Control installs. So the test fails if the package leaves out a file it needs. The fixture
+directory is read from the checkout, so it can be marked `export-ignore`.
+
 If the server is a linter, also add its configuration with only the rules you check for, so that the result doesn't
 change when the server's default rules change.
 
@@ -182,7 +186,7 @@ The action takes the same inputs as the workflow, except `os`, plus:
 | Input | Default | Description |
 |---|---|---|
 | `install-package` | `true` | Whether to install the package checked out at `package-path`. `false` when there is no package under test. |
-| `package-path` | `.` | Where the package under test is checked out. |
+| `package-path` | `.` | Where the package under test is checked out. It must be a git checkout. |
 | `local-libraries` | | Libraries to replace with a local copy, one per line, as `name=path` to the library's directory. |
 
 ## Testing a library
